@@ -149,11 +149,15 @@ h4 small { margin-left: 6px; color: var(--muted); font-size: 11px; font-weight: 
 
 .quad { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 22px; align-items: start; }
 .zone { fill: color-mix(in srgb, var(--s3) 9%, transparent); }
-.qcount { font-size: 12px; font-weight: 650; fill: var(--ink); }
-.qcount tspan { font-size: 10px; }
+.qmark { pointer-events: none; user-select: none; }
+.qmark text { fill: var(--c); fill-opacity: .16; font-weight: 800; letter-spacing: .08em; }
+.qmark text.n { fill-opacity: .4; font-size: 12px; font-weight: 600; letter-spacing: 0; }
+.c-neither.qmark text { fill: var(--muted); }
 .guide { display: grid; gap: 10px; margin: 0 0 12px; padding: 0; list-style: none; }
 .guide li { padding: 10px 14px; border: 1px solid var(--ring); border-radius: 16px; background: var(--chip); color: var(--muted); font-size: 12px; }
 .guide b { display: block; font-size: 13px; color: var(--c); }
+.guide b small { margin-left: 4px; color: var(--muted); font-size: 11px; font-weight: 500; }
+.guide li.c-neither b { color: var(--muted); }
 .toplist { display: grid; gap: 4px; margin: 0; padding-left: 18px; font-size: 12px; }
 .toplist button { padding: 0; border: 0; background: none; color: var(--ink-strong); text-decoration: underline; text-underline-offset: 2px; text-align: left; }
 .toplist span { color: var(--muted); }

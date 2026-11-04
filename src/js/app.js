@@ -352,8 +352,7 @@ function renderSwarm(m) {
 function renderQuad(m) {
   const q = m.quadrant;
   if (!q.points.length) { $("quad").innerHTML = '<p class="empty">帖子满 72 小时、攒够 8 条之后出现。</p>'; return; }
-  // Quadrant names live in a strip above and below the plot, never on top of the dots.
-  const W = 760, H = 420, L = 46, R = 14, T = 44, AX = 26, LABELS = 24, BAND = 40, PB = H - LABELS - AX - BAND;
+  const W = 760, H = 390, L = 46, R = 14, T = 14, AX = 28, BAND = 40, PB = H - AX - BAND;
   const x = (r) => L + (Math.log10(Math.min(100, Math.max(0.1, r))) + 1) / 3 * (W - L - R);
   const rates = q.points.map((p) => p.bookmarksPerThousand).filter((r) => r > 0).sort((a, b) => a - b);
   const yMax = Math.max(q.savesLine * 3, rates[Math.floor(rates.length * 0.95)] || 1, 1);
@@ -363,16 +362,39 @@ function renderQuad(m) {
   const maxV = Math.max(1, ...q.points.map((p) => p.views));
   const dots = [...q.points].sort((a, b) => b.views - a.views).map((p, index) => `<circle class="dot c-${p.cell}" style="--pop:${Math.min(index * 4, 600)}ms" cx="${x(p.ratio).toFixed(1)}" cy="${y(p.bookmarksPerThousand, p.id).toFixed(1)}" r="${(4 + Math.sqrt(p.views / maxV) * 14).toFixed(1)}" data-post="${esc(p.id)}" tabindex="0" role="button"/>`).join("");
   const label = { both: "双高", reach: "传播高", saves: "收藏高", neither: "都一般" };
-  const name = (key, px, py) => `<text class="qcount" x="${px.toFixed(1)}" y="${py}" text-anchor="middle"><tspan class="c-${key}">●</tspan> ${label[key]} ${q.counts[key]}</text>`;
-  const leftMid = (L + cx) / 2, rightMid = (cx + W - R) / 2;
-  const names = name("saves", leftMid, T - 26) + name("both", rightMid, T - 26) + name("neither", leftMid, H - 6) + name("reach", rightMid, H - 6);
-  const ticks = [0.1, 1, 10, 100].map((v) => `<text class="axis" x="${x(v)}" y="${PB + BAND + 18}" text-anchor="middle">${v === 1 ? "平时" : `${v}×`}</text>`).join("");
+  // Each quadrant's name is a faint watermark drawn under the dots, so it never hides one. It sits in the
+  // quadrant's emptiest spot, preferring the centre: candidates on a grid, scored by how much dot they cover.
+  const bottom = PB + BAND;
+  const placed = q.points.map((p) => ({ x: x(p.ratio), y: y(p.bookmarksPerThousand, p.id), r: 4 + Math.sqrt(p.views / maxV) * 14 }));
+  const mark = (key, x0, x1, y0, y1) => {
+    const size = Math.round(Math.max(16, Math.min(38, (x1 - x0) / 4.2, (y1 - y0) / 2.6)));
+    const w = label[key].length * size * 1.1, h = size + 20;
+    let best = null;
+    for (let i = 0; i <= 6; i += 1) {
+      for (let j = 0; j <= 4; j += 1) {
+        const mx = x0 + w / 2 + 6 + (x1 - x0 - w - 12) * i / 6, top = y0 + 4 + (y1 - y0 - h - 8) * j / 4;
+        if (x1 - x0 < w + 12 || y1 - y0 < h + 8) continue;
+        const covered = placed.reduce((sum, d) => {
+          const dx = Math.max(0, Math.abs(d.x - mx) - w / 2), dy = Math.max(0, Math.abs(d.y - (top + h / 2)) - h / 2);
+          return sum + (Math.hypot(dx, dy) < d.r ? d.r * d.r : 0);
+        }, 0);
+        const off = Math.hypot((mx - (x0 + x1) / 2) / (x1 - x0), (top + h / 2 - (y0 + y1) / 2) / (y1 - y0));
+        const score = covered + off * 600;
+        if (!best || score < best.score) best = { score, mx, top };
+      }
+    }
+    const mx = (best ? best.mx : (x0 + x1) / 2).toFixed(1), top = best ? best.top : (y0 + y1 - h) / 2;
+    return `<g class="qmark c-${key}" aria-hidden="true"><text x="${mx}" y="${(top + size * 0.88).toFixed(1)}" text-anchor="middle" font-size="${size}">${label[key]}</text>
+      <text class="n" x="${mx}" y="${(top + size + 16).toFixed(1)}" text-anchor="middle">${q.counts[key]} 条</text></g>`;
+  };
+  const marks = mark("saves", L, cx, T, cy) + mark("both", cx, W - R, T, cy) + mark("neither", L, cx, cy, bottom) + mark("reach", cx, W - R, cy, bottom);
+  const ticks = [0.1, 1, 10, 100].map((v) => `<text class="axis" x="${x(v)}" y="${bottom + 18}" text-anchor="middle">${v === 1 ? "平时" : `${v}×`}</text>`).join("");
   const svg = `<svg viewBox="0 0 ${W} ${H}" role="group" aria-label="传播 × 收藏"><rect class="zone" x="${cx}" y="${T}" width="${W - R - cx}" height="${cy - T}" rx="14"/>
-    <line class="base" x1="${cx}" x2="${cx}" y1="${T}" y2="${PB + BAND}"/><line class="base" x1="${L}" x2="${W - R}" y1="${cy}" y2="${cy}"/>
+    ${marks}<line class="base" x1="${cx}" x2="${cx}" y1="${T}" y2="${bottom}"/><line class="base" x1="${L}" x2="${W - R}" y1="${cy}" y2="${cy}"/>
     <text class="axis" x="${L - 6}" y="${PB + BAND / 2 + 4}" text-anchor="end">0 收藏</text><text class="axis" x="${L - 6}" y="${cy + 4}" text-anchor="end">${q.savesLine}‰</text>
-    ${dots}${ticks}${names}</svg>`;
-  const guide = [["both", "又被看又被收藏，最值得照着再写"], ["reach", "被看得多、收藏少：加步骤或清单，让它值得存"], ["saves", "看的人不多但会存：换个开头再发一次"]]
-    .map(([key, text]) => `<li class="c-${key}"><b>${label[key]}</b>${text}</li>`).join("");
+    ${dots}${ticks}</svg>`;
+  const guide = [["both", "又被看又被收藏，最值得照着再写"], ["reach", "被看得多、收藏少：加步骤或清单，让它值得存"], ["saves", "看的人不多但会存：换个开头再发一次"], ["neither", "阅读和收藏都不突出"]]
+    .map(([key, text]) => `<li class="c-${key}"><b>${label[key]} <small>${q.counts[key]} 条</small></b>${text}</li>`).join("");
   const both = q.both.length ? `<h4>双高的帖子</h4><ol class="toplist">${q.both.map((row) => `<li><button type="button" data-pick="${esc(row.id)}">${esc(row.topic)}</button> <span>${number(row.views)} 阅读 · ${times(row.ratio)} · 收藏 ${row.bookmarksPerThousand}‰</span></li>`).join("")}</ol>` : "";
   $("quad").innerHTML = `<p class="key">竖线：阅读是平时的 ${q.reachLine} 倍；横线：你这段时间每千次阅读有 ${q.savesLine} 次收藏。</p><div class="quad"><div class="chart">${svg}</div><div><ul class="guide">${guide}</ul>${both}</div></div>`;
 }
