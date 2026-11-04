@@ -1,12 +1,14 @@
 //! Postglow's native side is small on purpose: it keeps the window and a menu-bar icon alive so the
 //! hourly read can go on, stores the one state file in the app's data folder, and opens links in the
 //! default browser. Reading X (through FxTwitter) and every number on the page happen in the page.
+//! Updates come from the GitHub release's latest.json, signed with Postglow's own updater key.
 
 use std::fs;
 use std::path::PathBuf;
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
-use tauri::{AppHandle, Manager, RunEvent, WindowEvent};
+use tauri::{AppHandle, Emitter, Manager, RunEvent, WindowEvent};
+use tauri_plugin_updater::UpdaterExt;
 
 const STATE_FILE: &str = "state.json";
 const MAX_STATE_BYTES: usize = 16 * 1024 * 1024;
@@ -55,6 +57,39 @@ fn open_url(url: String) -> Result<(), String> {
     std::process::Command::new(program).arg(url).spawn().map(|_| ()).map_err(|e| e.to_string())
 }
 
+#[derive(serde::Serialize)]
+struct UpdateInfo {
+    current: String,
+    latest: Option<String>,
+    notes: Option<String>,
+}
+
+/// Ask the release feed whether a newer version exists.
+#[tauri::command]
+async fn check_update(app: AppHandle) -> Result<UpdateInfo, String> {
+    let current = app.package_info().version.to_string();
+    let update = app.updater().map_err(|e| e.to_string())?.check().await.map_err(|e| e.to_string())?;
+    Ok(UpdateInfo {
+        current,
+        latest: update.as_ref().map(|u| u.version.clone()),
+        notes: update.and_then(|u| u.body),
+    })
+}
+
+/// Download the newer version, check its signature, replace this app and start it again.
+#[tauri::command]
+async fn install_update(app: AppHandle) -> Result<(), String> {
+    let update = app
+        .updater()
+        .map_err(|e| e.to_string())?
+        .check()
+        .await
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "已经是最新版本".to_string())?;
+    update.download_and_install(|_, _| {}, || {}).await.map_err(|e| e.to_string())?;
+    app.restart()
+}
+
 fn show_main(app: &AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.show();
@@ -64,11 +99,13 @@ fn show_main(app: &AppHandle) {
 
 pub fn run() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![load_state, save_state, open_url])
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .invoke_handler(tauri::generate_handler![load_state, save_state, open_url, check_update, install_update])
         .setup(|app| {
             let show = MenuItem::with_id(app, "show", "显示 Postglow", true, None::<&str>)?;
+            let update = MenuItem::with_id(app, "update", "检查更新…", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&show, &quit])?;
+            let menu = Menu::with_items(app, &[&show, &update, &quit])?;
             TrayIconBuilder::new()
                 .icon(app.default_window_icon().unwrap().clone())
                 .icon_as_template(false)
@@ -76,6 +113,10 @@ pub fn run() {
                 .menu(&menu)
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "show" => show_main(app),
+                    "update" => {
+                        show_main(app);
+                        let _ = app.emit("check-update", ());
+                    }
                     "quit" => app.exit(0),
                     _ => {}
                 })

@@ -35,12 +35,28 @@ jobs:
         env:
           # Tauri skips the Finder step (DMG background, icon layout) on CI unless told not to.
           TAURI_BUNDLER_DMG_IGNORE_CI: "true"
+          # Signs the update archive (Postglow's own updater key, not an Apple certificate).
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
       - uses: actions/upload-artifact@v6
         with:
           name: Postglow-macos
-          path: src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
-      - name: Attach to the release
+          path: |
+            src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+            src-tauri/target/universal-apple-darwin/release/bundle/macos/*.tar.gz*
+      - name: Attach to the release, with the update feed
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "$GITHUB_REF_NAME" src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg --clobber
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          bundle=src-tauri/target/universal-apple-darwin/release/bundle
+          archive="Postglow_${version}_universal.app.tar.gz"
+          cp "$bundle/macos/Postglow.app.tar.gz" "$archive"
+          url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/${archive}"
+          notes="$(gh release view "$GITHUB_REF_NAME" --json body -q .body 2>/dev/null || true)"
+          jq -n --arg v "$version" --arg notes "$notes" --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg url "$url" --rawfile sig "$bundle/macos/Postglow.app.tar.gz.sig" \
+            '{version: $v, notes: $notes, pub_date: $date, platforms: {
+               "darwin-aarch64": {url: $url, signature: $sig}, "darwin-x86_64": {url: $url, signature: $sig}}}' > latest.json
+          gh release upload "$GITHUB_REF_NAME" "$bundle"/dmg/*.dmg "$archive" latest.json --clobber

@@ -17,7 +17,7 @@ export const HINTS = {
 };
 
 export const HELP_HTML = `
-<header><b>Postglow 使用说明</b><button type="button" class="btn" data-help-close>关闭</button></header>
+<header><b>Postglow 使用说明 <small id="appVersion"></small></b><span class="spacer"></span><button type="button" class="btn" data-check-update>检查更新</button><button type="button" class="btn" data-help-close>关闭</button></header>
 <div class="help-body">
 <section><h3>它在做什么</h3>
 <p>Postglow 每小时读一次你填的 X 账号的公开帖子和资料，存在这台电脑上，然后算出：哪些帖子被看得多、什么时间和什么形式发更好、读数涨得多快、粉丝怎么变。</p>
@@ -44,6 +44,10 @@ export const HELP_HTML = `
 <section><h3>第一次打开时，为什么 macOS 说它「已损坏」</h3>
 <p>文件没有坏，也不是病毒。macOS 会拦下所有没有经过 Apple 付费开发者认证和公证的应用，Postglow 是免费的开源小工具，暂时没有做这一步，所以提示看起来很吓人。</p>
 <p>放行一次即可：在提示里点「完成」（不要点「移到废纸篓」），打开「系统设置 → 隐私与安全性」，拉到最下面点「仍要打开」。之后就能正常打开。Postglow 的全部代码公开在 GitHub 上，任何人都可以查看。</p></section>
+
+<section><h3>怎么更新</h3>
+<p>Postglow 打开时会自动检查新版本（之后每天一次），有新版本时页面顶部会出现提示，点「立即更新」，它会自己下载、校验、替换并重新打开，几秒钟完成，数据都会保留。也可以点上面的「检查更新」，或者菜单栏的 Postglow 图标 →「检查更新…」。</p>
+<p>通过这种方式更新，不会再出现「已损坏」的提示。</p></section>
 
 <section><h3>读取失败怎么办</h3>
 <p>FxTwitter 是第三方服务，偶尔会不稳定。失败原因会显示在顶部，15 分钟后会自动重试，也可以点「立即读取」。电脑睡眠或应用退出期间不会读取，错过的时间点不参与对比。</p></section>

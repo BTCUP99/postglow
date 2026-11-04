@@ -106,9 +106,52 @@ function showHint(node) {
 function openHelp() {
   hideTip();
   const dialog = $("help");
-  if (!dialog.innerHTML) dialog.innerHTML = HELP_HTML;
+  if (!dialog.innerHTML) {
+    dialog.innerHTML = HELP_HTML;
+    tauri?.app?.getVersion().then((version) => { $("appVersion").textContent = `版本 ${version}`; }).catch(() => {});
+  }
   dialog.showModal();
 }
+
+/* ---------- updates: checked at launch and daily; installing replaces the app and restarts it ---------- */
+const updates = { latest: "", dismissed: "", busy: false, hideTimer: 0 };
+function showUpdate(html, autoHide = false) {
+  const bar = $("update");
+  clearTimeout(updates.hideTimer);
+  bar.innerHTML = html;
+  bar.hidden = false;
+  if (autoHide) updates.hideTimer = setTimeout(() => { bar.hidden = true; }, 5000);
+}
+async function checkUpdate(manual) {
+  if (!tauri || updates.busy) return;
+  if (manual) showUpdate("正在检查更新…");
+  try {
+    const info = await tauri.core.invoke("check_update");
+    if (info.latest) {
+      updates.latest = info.latest;
+      if (manual || updates.dismissed !== info.latest) {
+        showUpdate(`<span><b>Postglow ${esc(info.latest)}</b> 可以更新了 <small>当前 ${esc(info.current)}</small></span>
+          <button type="button" class="btn primary" data-update-install>立即更新</button><button type="button" class="btn" data-update-later>稍后</button>`);
+      }
+    } else if (manual) {
+      showUpdate(`已经是最新版本（${esc(info.current)}）`, true);
+    }
+  } catch (error) {
+    if (manual) showUpdate(`检查更新失败：${esc(error)}，稍后再试。`, true);
+  }
+}
+async function installUpdate() {
+  if (updates.busy) return;
+  updates.busy = true;
+  showUpdate(`正在下载 ${esc(updates.latest)}，完成后 Postglow 会自动重新打开…`);
+  try {
+    await tauri.core.invoke("install_update");
+  } catch (error) {
+    updates.busy = false;
+    showUpdate(`更新失败：${esc(error)} <button type="button" class="btn" data-update-install>重试</button><button type="button" class="btn" data-update-later>关闭</button>`);
+  }
+}
+tauri?.event?.listen("check-update", () => checkUpdate(true));
 
 function postTip(post) {
   const reach = reachCopy(post);
@@ -390,6 +433,9 @@ document.addEventListener("click", (event) => {
   if (help) { event.preventDefault(); showHint(help); return; }
   if (target.closest("#helpBtn, [data-open-help]")) { openHelp(); return; }
   if (target.closest("[data-help-close]") || target === $("help")) { $("help").close(); return; }
+  if (target.closest("[data-check-update]")) { $("help").close(); checkUpdate(true); return; }
+  if (target.closest("[data-update-install]")) { installUpdate(); return; }
+  if (target.closest("[data-update-later]")) { updates.dismissed = updates.latest; $("update").hidden = true; return; }
   const look = target.closest("[data-look-option]");
   if (look) {
     view.state.settings = { ...view.state.settings, look: look.dataset.lookOption };
@@ -541,5 +587,8 @@ setInterval(() => view.state && due(view.state, Date.now()) && readNow(false), 5
 document.addEventListener("visibilitychange", () => { if (!document.hidden && view.state && due(view.state, Date.now())) readNow(false); });
 // Relative times ("x 分钟前") stay current.
 setInterval(() => view.model && renderMeta(), 60 * 1000);
+// New versions: a few seconds after launch, then once a day while it keeps running in the menu bar.
+setTimeout(() => checkUpdate(false), 5000);
+setInterval(() => checkUpdate(false), DAY);
 
 start();

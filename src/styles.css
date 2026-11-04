@@ -230,7 +230,8 @@ dialog.help { width: min(640px, calc(100vw - 32px)); max-height: min(80vh, 760px
   background: var(--card-solid); color: var(--ink); box-shadow: var(--shadow-lift); overflow: hidden; }
 dialog.help[open] { display: flex; flex-direction: column; }
 dialog.help::backdrop { background: rgba(10, 10, 20, .35); backdrop-filter: blur(4px); }
-dialog.help > header { display: flex; align-items: center; justify-content: space-between; padding: 18px 24px; border-bottom: 1px solid var(--ring); }
+dialog.help > header { display: flex; align-items: center; gap: 8px; padding: 18px 24px; border-bottom: 1px solid var(--ring); }
+dialog.help > header small { margin-left: 6px; color: var(--muted); font-size: 12px; font-weight: 400; }
 dialog.help > header b { color: var(--ink-strong); font-size: 16px; }
 .help-body { padding: 6px 24px 24px; overflow-y: auto; }
 .help-body h3 { margin: 18px 0 6px; color: var(--ink-strong); font-size: 14px; }
@@ -240,6 +241,12 @@ dialog.help > header b { color: var(--ink-strong); font-size: 16px; }
 .help-body .hint { margin: 0 2px; cursor: default; }
 
 .linkish { margin-top: 6px; padding: 0; border: 0; background: none; color: var(--accent); font-size: 12px; text-decoration: underline; text-underline-offset: 2px; }
+
+/* Update bar */
+.update { position: fixed; top: 10px; left: 50%; z-index: 45; display: flex; align-items: center; gap: 10px; max-width: calc(100vw - 32px); padding: 8px 8px 8px 18px;
+  translate: -50% 0; border: 1px solid var(--edge); border-radius: 999px; background: var(--card-solid); box-shadow: var(--shadow-lift); color: var(--ink); font-size: 13px; }
+.update b { color: var(--ink-strong); } .update small { margin-left: 6px; color: var(--muted); font-size: 12px; }
+.update:not(:has(button)) { padding-right: 18px; }
 
 /* Welcome */
 .welcome { display: grid; place-items: center; min-height: 80vh; }
