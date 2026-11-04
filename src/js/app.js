@@ -1,10 +1,12 @@
 /* Postglow's page: welcome, the hourly read, and every card drawn from review.js's model. */
 import { collect, due, emptyState } from "./collect.js";
 import { FORMS, review } from "./review.js";
+import { HELP_HTML, HINTS } from "./help.js";
 
 const $ = (id) => document.getElementById(id);
 const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const DAY = 86400000;
+const hint = (key) => `<button type="button" class="hint" data-help="${key}" aria-label="这是什么？">?</button>`;
 const PAGE = 10;
 const tauri = window.__TAURI__;
 const view = { state: null, model: null, sort: "recent", replies: false, filter: null, focusId: "", shown: PAGE, drill: null, busy: false };
@@ -95,6 +97,18 @@ function showTip(html, x, y) {
   tip.style.top = `${Math.max(12, Math.min(innerHeight - h - 12, y - h / 2))}px`;
 }
 const hideTip = () => tip.classList.remove("on");
+function showHint(node) {
+  const [title, body] = HINTS[node.dataset.help] || [];
+  if (!title) return;
+  const box = node.getBoundingClientRect();
+  showTip(`<strong>${esc(title)}</strong><p>${esc(body)}</p>`, box.right, box.top + box.height / 2);
+}
+function openHelp() {
+  hideTip();
+  const dialog = $("help");
+  if (!dialog.innerHTML) dialog.innerHTML = HELP_HTML;
+  dialog.showModal();
+}
 
 function postTip(post) {
   const reach = reachCopy(post);
@@ -161,7 +175,7 @@ function renderOverview(m) {
   const week = m.week;
   const avatar = profile.avatar ? `<img src="${esc(profile.avatar)}" alt="" referrerpolicy="no-referrer">` : '<span class="avatar"></span>';
   $("hero").innerHTML = `<div class="who">${avatar}<div><b>${esc(profile.name || m.account)}</b><span>@${esc(profile.handle || m.account)}</span></div></div>
-    <div><div class="eyebrow">本周 · 近 7 天</div><div class="big" data-count="${week.now.views}">${compact(week.now.views)}<small>阅读</small></div>
+    <div><div class="eyebrow">本周 · 近 7 天 ${hint("week")}</div><div class="big" data-count="${week.now.views}">${compact(week.now.views)}<small>阅读</small></div>
     <div>${week.before.posts ? `${delta(week.now.views, week.before.views)}<span class="before">上周 ${compact(week.before.views)}</span>` : '<span class="before">上周还没有数据</span>'}</div></div>
     <p class="line">${esc(m.weekLine)}</p>`;
   const snaps = m.snapshots.slice(-30);
@@ -170,14 +184,14 @@ function renderOverview(m) {
     const day = new Date(Date.now() - (13 - index) * DAY).toDateString();
     return pick(m.posts.filter((post) => post.kind !== "reply" && new Date(post.postedAt).toDateString() === day));
   });
-  const capsule = (label, value, change, sparkline = "") => `<div class="capsule"><span class="label">${label}</span><span class="value">${value}</span>${change || ""}${sparkline}</div>`;
+  const capsule = (label, value, change, sparkline = "", help = "") => `<div class="capsule"><span class="label">${label}${help ? ` ${hint(help)}` : ""}</span><span class="value">${value}</span>${change || ""}${sparkline}</div>`;
   $("capsules").innerHTML = [
     capsule("粉丝", number(profile.followers), snaps.length > 1 ? delta(last.followers, first.followers, ` · ${snaps.length} 天`) : "", spark(snaps.map((s) => s.followers))),
     capsule("关注", number(profile.following), "", spark(snaps.map((s) => s.following), "var(--s3)")),
     capsule("帖子总数", number(profile.posts), "", spark(snaps.map((s) => s.posts), "var(--s2)")),
     capsule("发帖（近 7 天）", number(week.now.posts), week.before.posts ? delta(week.now.posts, week.before.posts) : "", spark(daily((rows) => rows.length), "var(--s1)")),
-    capsule("阅读中位数", number(week.now.medianViews), week.before.posts ? delta(week.now.medianViews, week.before.medianViews) : "", ""),
-    capsule("互动率", percent(week.now.engagementRate), week.before.posts ? delta(week.now.engagementRate, week.before.engagementRate) : "", ""),
+    capsule("阅读中位数", number(week.now.medianViews), week.before.posts ? delta(week.now.medianViews, week.before.medianViews) : "", "", "median"),
+    capsule("互动率", percent(week.now.engagementRate), week.before.posts ? delta(week.now.engagementRate, week.before.engagementRate) : "", "", "engagement"),
   ].join("") + `<p class="month">近 30 天：${number(week.month.posts)} 条 · 总阅读 ${number(week.month.views)} · 中位 ${number(week.month.medianViews)} · 互动率 ${percent(week.month.engagementRate)}</p>`;
   const best = (rows) => (rows || []).filter((row) => row.reliable && typeof row.ratio === "number" && row.ratio > 1).sort((a, b) => b.ratio - a.ratio)[0];
   const picks = [["hourly", best(m.timing.hourly), (row) => `${Number(row.id)} 点发`, (row) => `本地时间，${row.posts} 条`],
@@ -259,8 +273,8 @@ function renderTiming(m) {
   const best = new Set(rows.filter((row) => row.reliable && row.ratio).sort((a, b) => b.ratio - a.ratio).slice(0, 3).map((row) => row.id));
   const items = rows.map((row) => `<li><button type="button" class="hour${best.has(row.id) ? " best" : ""}${row.reliable ? "" : " thin"}" data-group="hourly|${row.id}" aria-expanded="false"${row.posts ? "" : " disabled"}
       aria-label="${Number(row.id)} 点：${row.posts} 条"><span class="cap" style="--h:${(row.ratio ? Math.max(4, row.ratio / max * 100) : 2).toFixed(1)}%"></span><span class="h">${Number(row.id) % 3 ? "" : Number(row.id)}</span></button></li>`).join("");
-  $("timing").innerHTML = `<p class="key">柱子越高，这个小时发的帖子阅读比平时（中位 ${number(m.baselineViews)}）高得越多。悬停看数字，点柱子看是哪些帖子。</p>
-    <section class="hours" data-scope="hourly"><h4>按小时 <small>高亮是最好的三个小时，淡色不到 ${m.timing.hourlyReliable} 条</small></h4><ol>${items}</ol></section>
+  $("timing").innerHTML = `<p class="key">柱子越高，这个小时发的帖子阅读比平时${hint("baseline")}（中位 ${number(m.baselineViews)}）高得越多。悬停看数字，点柱子看是哪些帖子。</p>
+    <section class="hours" data-scope="hourly"><h4>按小时 <small>高亮是最好的三个小时，淡色不到 ${m.timing.hourlyReliable} 条</small> ${hint("thin")}</h4><ol>${items}</ol></section>
     ${rankList("星期几", m.timing.weekdays, "weekdays", { natural: true })}`;
 }
 
@@ -286,7 +300,7 @@ function renderFollowers(m) {
     host.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="粉丝数">${ticks}<path class="line-path" d="${line}"/>${dots}
       <text class="axis" x="${L}" y="${H - 4}">${esc(snaps[0].day)}</text><text class="axis" x="${W - R}" y="${H - 4}" text-anchor="end">${esc(snaps.at(-1).day)}</text></svg>`;
   }
-  $("followerPosts").innerHTML = m.followerPosts.length ? `<h4 style="margin-top:14px">带粉最多的帖子 <small>发帖前后 24 小时的粉丝变化，同一窗口的帖子平分</small></h4><ol class="toplist">${m.followerPosts.map((row) =>
+  $("followerPosts").innerHTML = m.followerPosts.length ? `<h4 style="margin-top:14px">带粉最多的帖子 <small>发帖前后 24 小时的粉丝变化，同一窗口的帖子平分</small> ${hint("followerPosts")}</h4><ol class="toplist">${m.followerPosts.map((row) =>
     `<li><button type="button" data-pick="${esc(row.id)}">${esc(row.topic)}</button> <span>+${row.followers.toFixed(row.followers < 10 ? 1 : 0)} · ${number(row.views)} 阅读</span></li>`).join("")}</ol>` : "";
 }
 
@@ -372,6 +386,10 @@ function focusPost(id) {
 /* ---------- events ---------- */
 document.addEventListener("click", (event) => {
   const target = event.target;
+  const help = target.closest("[data-help]");
+  if (help) { event.preventDefault(); showHint(help); return; }
+  if (target.closest("#helpBtn, [data-open-help]")) { openHelp(); return; }
+  if (target.closest("[data-help-close]") || target === $("help")) { $("help").close(); return; }
   const look = target.closest("[data-look-option]");
   if (look) {
     view.state.settings = { ...view.state.settings, look: look.dataset.lookOption };
@@ -451,6 +469,8 @@ document.addEventListener("mouseover", (event) => {
     if (html) showTip(html, event.clientX, event.clientY);
     return;
   }
+  const help = event.target.closest?.("[data-help]");
+  if (help) { showHint(help); return; }
   const snap = event.target.closest?.("[data-snap]");
   if (snap) {
     const row = view.model.snapshots[Number(snap.dataset.snap)];
@@ -459,8 +479,11 @@ document.addEventListener("mouseover", (event) => {
   }
 });
 document.addEventListener("mouseout", (event) => {
-  if (event.target.closest?.("[data-post], [data-group], [data-snap]") && !event.target.closest("[data-post], [data-group], [data-snap]")?.contains(event.relatedTarget)) hideTip();
+  const from = event.target.closest?.("[data-post], [data-group], [data-snap], [data-help]");
+  if (from && !from.contains(event.relatedTarget)) hideTip();
 });
+document.addEventListener("focusin", (event) => { const help = event.target.closest?.("[data-help]"); if (help) showHint(help); });
+document.addEventListener("focusout", (event) => { if (event.target.closest?.("[data-help]")) hideTip(); });
 document.addEventListener("keydown", (event) => {
   const dot = event.target.closest?.("[data-post]");
   if (dot && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); focusPost(dot.dataset.post); }

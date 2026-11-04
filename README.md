@@ -24,14 +24,21 @@
   ```
 - **手动下载**：在 [Releases](../../releases) 下载 `Postglow_x.y.z_universal.dmg`，打开后照窗口里的三步做：
   1. 把 Postglow 拖进「应用程序」。
-  2. 在「应用程序」里双击 Postglow。应用还没有经过 Apple 公证，会弹出提示，点「完成」。
+  2. 在「应用程序」里双击 Postglow，macOS 会提示「已损坏，无法打开」。点「完成」（**不要**点「移到废纸篓」）。
   3. 打开「系统设置 → 隐私与安全性」，拉到最下面，点「仍要打开」，输入一次密码。以后就能正常打开了。
 
-  如果提示「已损坏」（0.1.0 版会这样），在「终端」里运行 `xattr -dr com.apple.quarantine /Applications/Postglow.app` 后再打开。
+**为什么会提示「已损坏」？安全吗？**
+
+文件并没有损坏，也不是病毒。macOS 会拦下所有没有经过 Apple 付费开发者认证和公证（每年 99 美元）的应用，并显示这句吓人的提示。Postglow 是免费的开源小工具，暂时没有做这一步。
+
+- 全部代码就在这个仓库里，任何人都可以查看；安装包由 GitHub Actions 从公开代码自动构建。
+- 它不需要登录 X，不读取密码或私信，只通过 FxTwitter 读取公开帖子；数据只存在你自己的电脑上，没有服务器，没有统计上报。
+- 不想点设置的话，用上面的一行命令安装就不会出现这个提示。
 
 **使用**
 
 1. 输入你的 X 用户名。第一次会回看约一个月（几十秒），之后每小时自动读一次。
+2. 看不懂某个板块：鼠标停在标题旁边的 **?** 上会有解释；右上角的 **?** 是完整的使用说明。
 
 关掉窗口后 Postglow 留在菜单栏里继续读取；要退出，点菜单栏图标 → 退出。帖子满 72 小时才进入大部分统计，粉丝曲线每天一个点，所以开着用几天会越来越准。
 
@@ -58,7 +65,8 @@
 Postglow reads one public X account through the open [FxTwitter](https://github.com/FxEmbed/FxEmbed) API (no login, no key), keeps the posts on your Mac, and shows how they did: reach against your usual post of the same age, the hour and weekday they went out, form and length, reach × bookmarks, how fast views arrive, and follower growth.
 
 - Install with one line: `curl -fsSL https://raw.githubusercontent.com/BTCUP99/postglow/main/install.sh | bash` (downloads the latest release into /Applications and opens it, no Gatekeeper prompt).
-- Or download the `.dmg` from [Releases](../../releases). The app is not notarized yet: open it once, then System Settings → Privacy & Security → Open Anyway. If macOS says it is "damaged" (0.1.0), run `xattr -dr com.apple.quarantine /Applications/Postglow.app`.
+- Or download the `.dmg` from [Releases](../../releases). macOS will say the app "is damaged and can't be opened": it isn't. Postglow is free and open source and is not notarized by Apple (that needs a paid developer account), so Gatekeeper shows this for any download. Click Done (not Move to Trash), then System Settings → Privacy & Security → Open Anyway, once.
+- Inside the app, the **?** at the top right opens a short guide, and every **?** next to a title explains that card on hover.
 - It keeps running in the menu bar after you close the window and reads hourly.
 - Data stays in `~/Library/Application Support/app.postglow.desktop/state.json`. Nothing is sent anywhere but FxTwitter.
 

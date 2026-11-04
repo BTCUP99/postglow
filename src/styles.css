@@ -220,6 +220,27 @@ li.thin { opacity: .45; }
 .post .numbers { display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
 .post .numbers b { color: var(--ink-strong); }
 
+/* Help: the "?" next to a title, and the help panel */
+.hint { display: inline-grid; place-items: center; width: 16px; height: 16px; margin-left: 6px; padding: 0; border: 1px solid var(--ring); border-radius: 50%;
+  background: var(--chip); color: var(--muted); font-size: 10px; font-weight: 700; line-height: 1; vertical-align: 2px; cursor: help; transition: color .15s, border-color .15s; }
+.hint:hover, .hint:focus-visible { color: var(--accent); border-color: var(--accent); }
+.eyebrow .hint, .capsule .hint { vertical-align: 1px; }
+.btn.icon { width: 34px; padding: 0; font-weight: 700; }
+dialog.help { width: min(640px, calc(100vw - 32px)); max-height: min(80vh, 760px); padding: 0; border: 1px solid var(--edge); border-radius: 24px;
+  background: var(--card-solid); color: var(--ink); box-shadow: var(--shadow-lift); overflow: hidden; }
+dialog.help[open] { display: flex; flex-direction: column; }
+dialog.help::backdrop { background: rgba(10, 10, 20, .35); backdrop-filter: blur(4px); }
+dialog.help > header { display: flex; align-items: center; justify-content: space-between; padding: 18px 24px; border-bottom: 1px solid var(--ring); }
+dialog.help > header b { color: var(--ink-strong); font-size: 16px; }
+.help-body { padding: 6px 24px 24px; overflow-y: auto; }
+.help-body h3 { margin: 18px 0 6px; color: var(--ink-strong); font-size: 14px; }
+.help-body p, .help-body li { margin: 0 0 6px; font-size: 13px; line-height: 1.7; }
+.help-body ul { margin: 0; padding-left: 18px; }
+.help-body code { padding: 1px 6px; border-radius: 6px; background: var(--chip); border: 1px solid var(--ring); font-size: 12px; word-break: break-all; }
+.help-body .hint { margin: 0 2px; cursor: default; }
+
+.linkish { margin-top: 6px; padding: 0; border: 0; background: none; color: var(--accent); font-size: 12px; text-decoration: underline; text-underline-offset: 2px; }
+
 /* Welcome */
 .welcome { display: grid; place-items: center; min-height: 80vh; }
 .welcome .card { width: min(520px, 100%); padding: 34px; text-align: center; }

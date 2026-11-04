@@ -19,7 +19,7 @@
         <button class="btn primary" type="submit">开始</button>
       </form>
       <div id="welcomeStatus" class="status" role="status" aria-live="polite"></div>
-      <small>不用登录，不用 API Key：通过开源的 FxTwitter 读取公开数据。<br>数据只存在这台电脑上。第一次会回看约一个月，之后每小时自动读一次。</small>
+      <small>不用登录，不用 API Key：通过开源的 FxTwitter 读取公开数据。<br>数据只存在这台电脑上。第一次会回看约一个月，之后每小时自动读一次。<br><button type="button" class="linkish" data-open-help>使用说明</button></small>
     </section>
   </main>
 
@@ -33,6 +33,7 @@
       </div>
       <button id="refreshBtn" class="btn" type="button">立即读取</button>
       <button id="switchBtn" class="btn" type="button">换账号</button>
+      <button id="helpBtn" class="btn icon" type="button" aria-label="使用说明" title="使用说明">?</button>
     </header>
 
     <nav class="jump" aria-label="本页板块">
@@ -53,35 +54,35 @@
       </section>
 
       <section id="secPosts" class="card span-12" aria-labelledby="postsTitle">
-        <h2 id="postsTitle">每条帖子</h2><span class="sub">近 30 天，越高阅读越多，气泡越大收藏越多</span>
+        <h2 id="postsTitle">每条帖子</h2><button type="button" class="hint" data-help="posts" aria-label="这是什么？">?</button><span class="sub">近 30 天，越高阅读越多，气泡越大收藏越多</span>
         <p class="key" id="postsKey"></p>
         <div class="chart" id="swarm"></div>
         <div class="legend" id="legend" role="group" aria-label="按形式筛选"></div>
       </section>
 
       <section id="secQuad" class="card span-12" aria-labelledby="quadTitle">
-        <h2 id="quadTitle">传播 × 收藏</h2><span class="sub">哪些帖子既被看又被收藏</span>
+        <h2 id="quadTitle">传播 × 收藏</h2><button type="button" class="hint" data-help="quad" aria-label="这是什么？">?</button><span class="sub">哪些帖子既被看又被收藏</span>
         <div id="quad"></div>
       </section>
 
       <section id="secTiming" class="card span-5" aria-labelledby="timingTitle" data-scope="timing">
-        <h2 id="timingTitle">发帖时段</h2><span class="sub">近 4 周满 72 小时的帖子，本地时间</span>
+        <h2 id="timingTitle">发帖时段</h2><button type="button" class="hint" data-help="timing" aria-label="这是什么？">?</button><span class="sub">近 4 周满 72 小时的帖子，本地时间</span>
         <div id="timing"></div>
       </section>
 
       <section id="secGrowth" class="card span-7" aria-labelledby="growthTitle">
-        <h2 id="growthTitle">粉丝</h2><span class="sub">每天记一次</span>
+        <h2 id="growthTitle">粉丝</h2><button type="button" class="hint" data-help="followers" aria-label="这是什么？">?</button><span class="sub">每天记一次</span>
         <div class="chart" id="followers"></div>
         <div id="followerPosts"></div>
       </section>
 
       <section id="secHow" class="card span-7" aria-labelledby="howTitle" data-scope="how">
-        <h2 id="howTitle">怎么发</h2><span class="sub">形式、原创与引用、篇幅</span>
+        <h2 id="howTitle">怎么发</h2><button type="button" class="hint" data-help="how" aria-label="这是什么？">?</button><span class="sub">形式、原创与引用、篇幅</span>
         <div id="how"></div>
       </section>
 
       <section class="card span-5" aria-labelledby="paceTitle">
-        <h2 id="paceTitle">发后多久见分晓</h2>
+        <h2 id="paceTitle">发后多久见分晓</h2><button type="button" class="hint" data-help="pace" aria-label="这是什么？">?</button>
         <div id="pace"></div>
       </section>
 
@@ -91,6 +92,7 @@
           <div class="seg" role="group" aria-label="排序">
             <button type="button" data-sort="recent" aria-pressed="true">最新</button><button type="button" data-sort="views" aria-pressed="false">阅读最高</button><button type="button" data-sort="reach" aria-pressed="false">相对平时</button><button type="button" data-sort="engagement" aria-pressed="false">互动率</button>
           </div>
+          <button type="button" class="hint" data-help="reach" aria-label="这是什么？">?</button>
           <span id="filterChip" class="filter" hidden></span>
           <span class="spacer"></span>
           <button type="button" class="btn" id="repliesBtn" aria-pressed="false">显示回复</button>
@@ -101,6 +103,7 @@
     </div>
   </div>
 
+  <dialog id="help" class="help" aria-label="使用说明"></dialog>
   <div class="tip" id="tip" role="tooltip"></div>
   <script type="module" src="js/app.js"></script>
 </body>

@@ -15,11 +15,11 @@ INK, MUTED, ACCENT, BG = (28, 28, 40), (110, 110, 128), (91, 91, 214), (247, 247
 
 STEPS = [
     "把 Postglow 拖到右边的「应用程序」",
-    "在「应用程序」里双击 Postglow，出现提示时点「完成」",
+    "在「应用程序」里双击 Postglow，提示「已损坏」时点「完成」",
     "打开「系统设置 → 隐私与安全性」，拉到最下面，点「仍要打开」",
 ]
-NOTE = "应用尚未经过 Apple 公证，这几步只需做一次。"
-NOTE_EN = "First launch: open once, then System Settings → Privacy & Security → Open Anyway."
+NOTE = "文件并没有损坏：Postglow 是免费开源工具，没有付费做 Apple 公证，macOS 才这样提示。只需放行一次。"
+NOTE_EN = "Not really damaged, just not notarized by Apple: open once, then Privacy & Security → Open Anyway."
 
 
 def font(size, bold=False):
