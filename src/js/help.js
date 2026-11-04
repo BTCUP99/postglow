@@ -45,9 +45,13 @@ export const HELP_HTML = `
 <section><h3>「平时」和「几倍」</h3>
 <p>「平时」是近 30 天里满 72 小时的原创和引用帖子的阅读中位数（至少 8 条）。页面上的「1.8×」都是「是平时的 1.8 倍」。新帖子只和同样发出几小时的帖子比，不会拿刚发 1 小时的帖子去和 3 天的比。</p></section>
 
+<section><h3>多个账号</h3>
+<p>点右上角「换账号」可以添加别的账号（最多 10 个），已保存的账号列在那里，点一下就切换。每个账号的数据单独保存成一个文件，互不影响；切换不会丢失任何账号的历史。</p>
+<p>所有已保存的账号都会在后台每小时各读一次，一个接一个地读，不会同时写同一份数据。不再需要的账号，点它旁边的 × 再点「确认删除」，只删除这个账号的数据。</p></section>
+
 <section><h3>数据从哪来，安全吗</h3>
 <p>通过开源项目 FxTwitter 的公开接口读取公开数据：不需要登录 X，不需要密码或 API Key，看不到私信或任何非公开内容。</p>
-<p>所有数据只保存在这台电脑上：<code>~/Library/Application Support/app.postglow.desktop/state.json</code>，没有服务器，没有统计上报。除了 FxTwitter，不会连接任何地方。</p></section>
+<p>所有数据只保存在这台电脑上：<code>~/Library/Application Support/app.postglow.desktop/</code>（每个账号一个文件，在 accounts 文件夹里），没有服务器，没有统计上报。除了 FxTwitter，不会连接任何地方。</p></section>
 
 <section><h3>第一次打开时，为什么 macOS 说它「已损坏」</h3>
 <p>文件没有坏，也不是病毒。macOS 会拦下所有没有经过 Apple 付费开发者认证和公证的应用，Postglow 是免费的开源小工具，暂时没有做这一步，所以提示看起来很吓人。</p>

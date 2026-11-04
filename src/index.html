@@ -12,13 +12,15 @@
   <main id="welcome" class="wrap welcome" data-tauri-drag-region hidden>
     <section class="card">
       <div class="brand-orb orb" aria-hidden="true"></div>
-      <h1>Postglow</h1>
+      <h1 id="welcomeTitle">Postglow</h1>
       <p>帖子复盘：哪些帖子被看、什么时候发更好、粉丝怎么涨。</p>
       <form id="welcomeForm">
         <input id="handleInput" name="handle" autocomplete="off" spellcheck="false" placeholder="@你的 X 用户名" aria-label="X 用户名" required>
         <button class="btn primary" type="submit">开始</button>
       </form>
       <div id="welcomeStatus" class="status" role="status" aria-live="polite"></div>
+      <div id="accounts" class="accounts" hidden></div>
+      <button type="button" id="welcomeBack" class="btn" data-welcome-back hidden>返回</button>
       <small>不用登录，不用 API Key：通过开源的 FxTwitter 读取公开数据。<br>数据只存在这台电脑上。第一次会回看约一个月，之后每小时自动读一次。<br><button type="button" class="linkish" data-open-help>使用说明</button></small>
       <label class="check autostart-ask" hidden><input type="checkbox" id="welcomeAutostart" checked> 登录 Mac 时自动在菜单栏启动，重启后也不漏读</label>
     </section>

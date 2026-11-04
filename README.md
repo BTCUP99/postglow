@@ -1,10 +1,24 @@
 <p align="center"><img src="app-icon.png" width="96" alt=""></p>
 <h1 align="center">Postglow · 帖子复盘</h1>
-<p align="center">A small Mac app that reviews your X posts: which ones got read, what hour works, how they grow, where followers came from.<br>输入一个 X 用户名，本地复盘你的帖子。</p>
+<p align="center">A small Mac app that reviews your X posts: which ones got read, what hour works, how they grow, where followers came from.<br>输入一个 X 用户名，本地复盘你的帖子。轻量、开源、数据只在你的电脑上。</p>
 
 ---
 
 ## 中文
+
+**一个轻量的小工具**
+
+Postglow 只做一件事：每小时读一次你的公开帖子，在本地算出复盘结果。它平时待在菜单栏里，不需要你管。下面是在一台 Apple 芯片 Mac 上实测的数字：
+
+| | 实测 |
+|---|---|
+| 安装大小 | 下载约 5 MB，安装后 12 MB |
+| CPU | 空闲时 0%；每小时读取时忙几秒 |
+| 内存 | 约 180 MB，其中 Postglow 本身约 30 MB，其余是 macOS 自带的网页引擎（WebKit）在显示页面，相当于浏览器的一个标签页 |
+| 网络 | 每个账号每小时约 250 KB，一天约 6 MB |
+| 磁盘 | 每个账号的数据通常不到 1 MB（只保留近 180 天、最多 3000 条） |
+
+没有后台服务、没有服务器、没有统计上报；退出后不留任何常驻进程（开机自动启动只是登录时打开它一次）。
 
 **它做什么**
 
@@ -46,7 +60,15 @@
 
 **数据从哪来**
 
-通过开源项目 [FxTwitter](https://github.com/FxEmbed/FxEmbed) 的公开接口读取公开帖子和资料，不需要登录 X，也不需要 API Key。所有数据只保存在本机：`~/Library/Application Support/app.postglow.desktop/state.json`。没有服务器、没有统计上报。
+通过开源项目 [FxTwitter](https://github.com/FxEmbed/FxEmbed) 的公开接口读取公开帖子和资料，不需要登录 X，也不需要 API Key。所有数据只保存在本机，没有服务器、没有统计上报。
+
+**多个账号与数据**
+
+- 点「换账号」可以添加最多 10 个账号，已保存的账号列在那里，点一下切换。
+- 每个账号一个文件：`~/Library/Application Support/app.postglow.desktop/accounts/<用户名>.json`；当前账号和配色存在同目录的 `prefs.json`。切换账号不会动任何其他账号的数据。
+- 所有已保存的账号都在后台每小时各读一次，一个接一个地读，同一个账号在内存里只有一份，页面和后台读取改的是同一份数据，所以不会互相覆盖。写文件先写临时文件再替换，读到一半断电也不会留下半个文件。
+- 删除账号只删它自己的文件（要点两次确认）。
+- 从 0.1.6 之前的版本升级时，旧的 `state.json` 会自动搬到 `accounts/` 里，原文件保留为 `state.v1.backup.json`。
 
 **数字怎么算**
 
@@ -64,14 +86,14 @@
 
 ## English
 
-Postglow reads one public X account through the open [FxTwitter](https://github.com/FxEmbed/FxEmbed) API (no login, no key), keeps the posts on your Mac, and shows how they did: reach against your usual post of the same age, the hour and weekday they went out, form and length, reach × bookmarks, how fast views arrive, and follower growth.
+Postglow is a lightweight tool: idle CPU 0%, about 180 MB of memory (30 MB of its own, the rest is macOS's WebKit drawing the page), about 250 KB of network per account per hour, under 1 MB of data per account. It reads public X accounts through the open [FxTwitter](https://github.com/FxEmbed/FxEmbed) API (no login, no key), keeps the posts on your Mac, and shows how they did: reach against your usual post of the same age, the hour and weekday they went out, form and length, reach × bookmarks, how fast views arrive, and follower growth.
 
 - Install with one line: `curl -fsSL https://raw.githubusercontent.com/BTCUP99/postglow/main/install.sh | bash` (downloads the latest release into /Applications and opens it, no Gatekeeper prompt).
 - Or download the `.dmg` from [Releases](../../releases). macOS will say the app "is damaged and can't be opened": it isn't. Postglow is free and open source and is not notarized by Apple (that needs a paid developer account), so Gatekeeper shows this for any download. Click Done (not Move to Trash), then System Settings → Privacy & Security → Open Anyway, once.
 - Updates: from 0.1.3 on, Postglow checks for new versions and updates itself in place (signed with its own updater key, data kept, no Gatekeeper prompt). Older versions: drag the new one into Applications to replace it.
 - Inside the app, the **?** at the top right opens a short guide, and every **?** next to a title explains that card on hover.
 - It keeps running in the menu bar after you close the window and reads hourly.
-- Data stays in `~/Library/Application Support/app.postglow.desktop/state.json`. Nothing is sent anywhere but FxTwitter.
+- Up to 10 accounts, each in its own file under `~/Library/Application Support/app.postglow.desktop/accounts/`; all are read hourly, one at a time, so they never overwrite each other. Nothing is sent anywhere but FxTwitter.
 
 ## Maintaining
 

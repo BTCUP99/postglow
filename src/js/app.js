@@ -9,24 +9,53 @@ const DAY = 86400000;
 const hint = (key) => `<button type="button" class="hint" data-help="${key}" aria-label="这是什么？">?</button>`;
 const PAGE = 10;
 const tauri = window.__TAURI__;
-const view = { state: null, model: null, sort: "recent", replies: false, filter: null, focusId: "", shown: PAGE, drill: null, busy: false };
+const view = { state: null, prefs: {}, accounts: [], model: null, sort: "recent", replies: false, filter: null, focusId: "", shown: PAGE, drill: null, busy: false };
+const MAX_ACCOUNTS = 10;
 
-/* ---------- storage: the app's data folder through the native side, the browser's storage in a preview ---------- */
-async function load() {
-  try {
-    const text = tauri ? await tauri.core.invoke("load_state") : localStorage.getItem("postglow-state") || "";
-    const state = text ? JSON.parse(text) : null;
-    return state?.schema === "postglow.state.v1" ? state : null;
-  } catch {
-    return null;
-  }
-}
-
-async function save() {
-  const json = JSON.stringify(view.state);
-  if (tauri) await tauri.core.invoke("save_state", { json });
-  else localStorage.setItem("postglow-state", json);
-}
+/* ---------- storage: one file per account plus prefs.json through the native side (the browser's storage in a preview).
+   Each account is loaded once and kept here, so the page and the background reads always change the same object. ---------- */
+const key = (handle) => String(handle || "").toLowerCase();
+const cache = new Map();
+const local = {
+  list: () => Object.keys(localStorage).filter((k) => k.startsWith("postglow-account:")).map((k) => k.slice(17)).sort(),
+  get: (k) => localStorage.getItem(k) || "",
+};
+const store = {
+  list: () => (tauri ? tauri.core.invoke("list_accounts") : Promise.resolve(local.list())),
+  async load(handle) {
+    if (cache.has(key(handle))) return cache.get(key(handle));
+    let state = null;
+    try {
+      const text = tauri ? await tauri.core.invoke("load_account", { handle }) : local.get(`postglow-account:${key(handle)}`);
+      state = text ? JSON.parse(text) : null;
+    } catch {}
+    if (state?.schema !== "postglow.state.v1") return null;
+    cache.set(key(handle), state);
+    return state;
+  },
+  async save(state) {
+    cache.set(key(state.account), state);
+    const json = JSON.stringify(state);
+    if (tauri) await tauri.core.invoke("save_account", { handle: state.account, json });
+    else localStorage.setItem(`postglow-account:${key(state.account)}`, json);
+  },
+  async remove(handle) {
+    cache.delete(key(handle));
+    if (tauri) await tauri.core.invoke("delete_account", { handle });
+    else localStorage.removeItem(`postglow-account:${key(handle)}`);
+  },
+  async prefs() {
+    try {
+      const text = tauri ? await tauri.core.invoke("load_prefs") : local.get("postglow-prefs");
+      return text ? JSON.parse(text) : {};
+    } catch { return {}; }
+  },
+  savePrefs() {
+    const json = JSON.stringify(view.prefs);
+    return tauri ? tauri.core.invoke("save_prefs", { json }) : Promise.resolve(localStorage.setItem("postglow-prefs", json));
+  },
+};
+const save = () => store.save(view.state);
 
 function openPost(url) {
   if (!/^https:\/\/x\.com\//.test(url || "")) return;
@@ -80,7 +109,7 @@ const formOf = (post) => (post.format === "article" ? "article" : { videos: "vid
 
 /* ---------- looks ---------- */
 function applyLook() {
-  const chosen = view.state?.settings?.look || "auto";
+  const chosen = view.prefs.look || "auto";
   const look = chosen === "auto" ? (matchMedia("(prefers-color-scheme: dark)").matches ? "night" : "cloud") : chosen;
   document.documentElement.dataset.look = look;
   document.querySelectorAll("[data-look-option]").forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.lookOption === chosen)));
@@ -287,7 +316,7 @@ function countUp(node) {
   const unit = node.querySelector("small")?.outerHTML || "";
   const start = performance.now();
   const step = (now) => {
-    const progress = Math.min(1, (now - start) / 1000);
+    const progress = Math.min(1, Math.max(0, (now - start) / 1000)); // a frame can be stamped just before `start`
     node.innerHTML = compact(target * (1 - (1 - progress) ** 3)) + unit;
     if (progress < 1) requestAnimationFrame(step);
   };
@@ -323,7 +352,8 @@ function renderSwarm(m) {
 function renderQuad(m) {
   const q = m.quadrant;
   if (!q.points.length) { $("quad").innerHTML = '<p class="empty">帖子满 72 小时、攒够 8 条之后出现。</p>'; return; }
-  const W = 760, H = 380, L = 46, R = 14, T = 18, AX = 34, BAND = 40, PB = H - AX - BAND;
+  // Quadrant names live in a strip above and below the plot, never on top of the dots.
+  const W = 760, H = 420, L = 46, R = 14, T = 44, AX = 26, LABELS = 24, BAND = 40, PB = H - LABELS - AX - BAND;
   const x = (r) => L + (Math.log10(Math.min(100, Math.max(0.1, r))) + 1) / 3 * (W - L - R);
   const rates = q.points.map((p) => p.bookmarksPerThousand).filter((r) => r > 0).sort((a, b) => a - b);
   const yMax = Math.max(q.savesLine * 3, rates[Math.floor(rates.length * 0.95)] || 1, 1);
@@ -333,12 +363,14 @@ function renderQuad(m) {
   const maxV = Math.max(1, ...q.points.map((p) => p.views));
   const dots = [...q.points].sort((a, b) => b.views - a.views).map((p, index) => `<circle class="dot c-${p.cell}" style="--pop:${Math.min(index * 4, 600)}ms" cx="${x(p.ratio).toFixed(1)}" cy="${y(p.bookmarksPerThousand, p.id).toFixed(1)}" r="${(4 + Math.sqrt(p.views / maxV) * 14).toFixed(1)}" data-post="${esc(p.id)}" tabindex="0" role="button"/>`).join("");
   const label = { both: "双高", reach: "传播高", saves: "收藏高", neither: "都一般" };
-  const corner = (key, px, py, anchor) => `<text class="qcount" x="${px}" y="${py}" text-anchor="${anchor}">${label[key]} ${q.counts[key]}</text>`;
-  const ticks = [0.1, 1, 10, 100].map((v) => `<text class="axis" x="${x(v)}" y="${H - 16}" text-anchor="middle">${v === 1 ? "平时" : `${v}×`}</text>`).join("");
+  const name = (key, px, py) => `<text class="qcount" x="${px.toFixed(1)}" y="${py}" text-anchor="middle"><tspan class="c-${key}">●</tspan> ${label[key]} ${q.counts[key]}</text>`;
+  const leftMid = (L + cx) / 2, rightMid = (cx + W - R) / 2;
+  const names = name("saves", leftMid, T - 26) + name("both", rightMid, T - 26) + name("neither", leftMid, H - 6) + name("reach", rightMid, H - 6);
+  const ticks = [0.1, 1, 10, 100].map((v) => `<text class="axis" x="${x(v)}" y="${PB + BAND + 18}" text-anchor="middle">${v === 1 ? "平时" : `${v}×`}</text>`).join("");
   const svg = `<svg viewBox="0 0 ${W} ${H}" role="group" aria-label="传播 × 收藏"><rect class="zone" x="${cx}" y="${T}" width="${W - R - cx}" height="${cy - T}" rx="14"/>
     <line class="base" x1="${cx}" x2="${cx}" y1="${T}" y2="${PB + BAND}"/><line class="base" x1="${L}" x2="${W - R}" y1="${cy}" y2="${cy}"/>
     <text class="axis" x="${L - 6}" y="${PB + BAND / 2 + 4}" text-anchor="end">0 收藏</text><text class="axis" x="${L - 6}" y="${cy + 4}" text-anchor="end">${q.savesLine}‰</text>
-    ${dots}${ticks}${corner("both", W - R - 6, T + 16, "end")}${corner("saves", L + 8, T + 16, "start")}${corner("reach", W - R - 6, PB - 8, "end")}${corner("neither", L + 8, PB - 8, "start")}</svg>`;
+    ${dots}${ticks}${names}</svg>`;
   const guide = [["both", "又被看又被收藏，最值得照着再写"], ["reach", "被看得多、收藏少：加步骤或清单，让它值得存"], ["saves", "看的人不多但会存：换个开头再发一次"]]
     .map(([key, text]) => `<li class="c-${key}"><b>${label[key]}</b>${text}</li>`).join("");
   const both = q.both.length ? `<h4>双高的帖子</h4><ol class="toplist">${q.both.map((row) => `<li><button type="button" data-pick="${esc(row.id)}">${esc(row.topic)}</button> <span>${number(row.views)} 阅读 · ${times(row.ratio)} · 收藏 ${row.bookmarksPerThousand}‰</span></li>`).join("")}</ol>` : "";
@@ -415,7 +447,8 @@ function renderList(m) {
 
 function renderMeta() {
   const c = view.model.collector;
-  const parts = [c.lastSuccessAt ? `上次读取 ${ago(c.lastSuccessAt)}` : "还没有读取", `共 ${number(view.model.posts.length)} 条`, "每小时自动读取"];
+  const parts = [c.lastSuccessAt ? `上次读取 ${ago(c.lastSuccessAt)}` : "还没有读取", `共 ${number(view.model.posts.length)} 条`,
+    view.accounts.length > 1 ? `${view.accounts.length} 个账号每小时自动读取` : "每小时自动读取"];
   if (view.model.baselineViews) parts.splice(2, 0, `平时阅读中位 ${number(view.model.baselineViews)}`);
   if (c.lastOk === false && c.lastError) parts.push(`上次失败：${c.lastError}`);
   if (view.busy) parts.unshift("正在读取…");
@@ -437,19 +470,26 @@ function render() {
   renderDrill();
 }
 
-/* ---------- reading ---------- */
-async function readNow(force) {
+/* ---------- reading: one read at a time, every saved account in turn ---------- */
+async function readAccounts({ force = false } = {}) {
   if (view.busy || !view.state?.account) return;
   view.busy = true;
-  if (view.model) renderMeta();
+  if (view.model && !$("app").hidden) renderMeta();
   try {
-    const result = await collect(view.state, { force });
-    if (!result.skipped) await save();
+    // The account on screen first (forced by 立即读取), then the others when they are due.
+    const others = view.accounts.filter((handle) => handle !== key(view.state.account));
+    for (const handle of [key(view.state.account), ...others]) {
+      const state = handle === key(view.state.account) ? view.state : await store.load(handle);
+      if (!state) continue;
+      const result = await collect(state, { force: force && state === view.state });
+      if (!result.skipped) await store.save(state);
+    }
   } finally {
     view.busy = false;
     if (!$("app").hidden) render();
   }
 }
+const readNow = (force) => readAccounts({ force });
 
 function focusPost(id) {
   const post = view.model.posts.find((row) => row.id === id);
@@ -481,9 +521,9 @@ document.addEventListener("click", (event) => {
   if (target.closest("[data-update-later]")) { updates.dismissed = updates.latest; $("update").hidden = true; return; }
   const look = target.closest("[data-look-option]");
   if (look) {
-    view.state.settings = { ...view.state.settings, look: look.dataset.lookOption };
+    view.prefs = { ...view.prefs, look: look.dataset.lookOption };
     applyLook();
-    save();
+    store.savePrefs();
     return;
   }
   const dot = target.closest("[data-post]");
@@ -541,7 +581,12 @@ document.addEventListener("click", (event) => {
   const jump = target.closest("[data-jump]");
   if (jump) { $(jump.dataset.jump)?.scrollIntoView({ behavior: "smooth", block: "start" }); return; }
   if (target.closest("#refreshBtn")) { readNow(true); return; }
-  if (target.closest("#switchBtn")) { showWelcome(view.state.account); }
+  if (target.closest("#switchBtn")) { showWelcome(); return; }
+  if (target.closest("[data-welcome-back]")) { showApp(); return; }
+  const pickAccount = target.closest("[data-account]");
+  if (pickAccount) { switchTo(pickAccount.dataset.account); return; }
+  const removeAccount = target.closest("[data-account-remove]");
+  if (removeAccount) { askRemove(removeAccount); return; }
 });
 
 document.addEventListener("mouseover", (event) => {
@@ -591,12 +636,70 @@ let resizeTimer;
 addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => view.model && renderSwarm(view.model), 150); });
 
 /* ---------- welcome and start ---------- */
-function showWelcome(current = "") {
-  document.querySelector(".autostart-ask").hidden = !tauri || Boolean(current);
+/* ---------- accounts: the welcome page adds one; saved ones are listed there to switch to or remove ---------- */
+function renderAccounts() {
+  const current = key(view.state?.account);
+  const saved = view.accounts.length > 0;
+  $("welcomeTitle").textContent = saved ? "换一个账号" : "Postglow";
+  $("welcomeBack").hidden = !view.state;
+  $("accounts").hidden = !saved;
+  $("accounts").innerHTML = saved ? `<p>已保存的账号 <small>每个账号的数据单独保存，都会在后台每小时读取</small></p><ul>${view.accounts.map((handle) => {
+    const name = cache.get(handle)?.profile?.handle || handle;
+    return `<li class="${handle === current ? "current" : ""}"><button type="button" data-account="${esc(handle)}">@${esc(name)}${handle === current ? " <small>当前</small>" : ""}</button>
+      <button type="button" class="remove" data-account-remove="${esc(handle)}" aria-label="删除 @${esc(name)} 的数据" title="删除这个账号的数据">×</button></li>`;
+  }).join("")}</ul>` : "";
+}
+
+function showWelcome() {
+  document.querySelector(".autostart-ask").hidden = !tauri || view.accounts.length > 0;
+  $("welcomeStatus").textContent = "";
+  $("handleInput").value = "";
+  renderAccounts();
   $("app").hidden = true;
   $("welcome").hidden = false;
-  $("handleInput").value = current ? `@${current}` : "";
   $("handleInput").focus();
+}
+
+function showApp() {
+  if (!view.state) return;
+  $("welcome").hidden = true;
+  $("app").hidden = false;
+  view.filter = null; view.focusId = ""; view.drill = null; view.shown = PAGE;
+  render();
+}
+
+async function switchTo(handle) {
+  const state = await store.load(handle);
+  if (!state) return;
+  view.state = state;
+  view.prefs = { ...view.prefs, current: state.account };
+  await store.savePrefs();
+  showApp();
+  if (due(state, Date.now())) readNow(false);
+}
+
+// Removing asks twice in place: the first click turns × into 确认删除.
+function askRemove(button) {
+  if (!button.classList.contains("confirm")) {
+    button.classList.add("confirm");
+    button.textContent = "确认删除";
+    setTimeout(() => { if (button.isConnected) { button.classList.remove("confirm"); button.textContent = "×"; } }, 4000);
+    return;
+  }
+  removeAccount(button.dataset.accountRemove);
+}
+
+async function removeAccount(handle) {
+  if (view.busy) { $("welcomeStatus").className = "status"; $("welcomeStatus").textContent = "正在读取，请稍后再删除。"; return; }
+  await store.remove(handle);
+  view.accounts = await store.list();
+  if (key(view.state?.account) === handle) {
+    const next = view.accounts[0] ? await store.load(view.accounts[0]) : null;
+    view.state = next;
+    view.prefs = { ...view.prefs, current: next?.account || "" };
+    await store.savePrefs();
+  }
+  showWelcome();
 }
 
 $("welcomeForm").addEventListener("submit", async (event) => {
@@ -604,32 +707,34 @@ $("welcomeForm").addEventListener("submit", async (event) => {
   const handle = $("handleInput").value.trim().replace(/^@/, "").replace(/^https?:\/\/(x|twitter)\.com\//i, "").split(/[/?#]/)[0];
   const status = $("welcomeStatus");
   if (!/^[A-Za-z0-9_]{1,15}$/.test(handle)) { status.className = "status error"; status.textContent = "请输入 X 用户名，例如 @jack"; return; }
-  const same = view.state?.account?.toLowerCase() === handle.toLowerCase();
-  const next = same ? view.state : { ...emptyState(handle), settings: view.state?.settings || {} };
+  if (view.accounts.includes(key(handle))) { switchTo(key(handle)); return; }
+  if (view.accounts.length >= MAX_ACCOUNTS) { status.className = "status error"; status.textContent = `最多保存 ${MAX_ACCOUNTS} 个账号，先删掉一个不再需要的。`; return; }
+  const first = view.accounts.length === 0;
+  const next = emptyState(handle);
   status.className = "status"; status.textContent = "正在读取，第一次会回看约一个月，需要几十秒…";
   const result = await collect(next, { force: true });
   if (!result.ok) { status.className = "status error"; status.textContent = result.error || "读取失败"; return; }
-  view.state = next;
-  await save();
-  if (!document.querySelector(".autostart-ask").hidden) setAutostart($("welcomeAutostart").checked);
+  await store.save(next);
+  view.accounts = await store.list();
+  if (first && !document.querySelector(".autostart-ask").hidden) setAutostart($("welcomeAutostart").checked);
   status.textContent = "";
-  $("welcome").hidden = true;
-  $("app").hidden = false;
-  render();
+  await switchTo(key(next.account));
 });
 
 async function start() {
-  view.state = await load();
+  view.prefs = await store.prefs();
   applyLook();
-  if (!view.state?.account) { showWelcome(); return; }
-  $("app").hidden = false;
-  render();
-  if (due(view.state, Date.now())) readNow(false);
+  view.accounts = await store.list();
+  const current = view.accounts.includes(key(view.prefs.current)) ? key(view.prefs.current) : view.accounts[0];
+  view.state = current ? await store.load(current) : null;
+  if (!view.state) { showWelcome(); return; }
+  showApp();
+  readNow(false);
 }
 
-// The hourly read: checked every five minutes and whenever the window comes back.
-setInterval(() => view.state && due(view.state, Date.now()) && readNow(false), 5 * 60 * 1000);
-document.addEventListener("visibilitychange", () => { if (!document.hidden && view.state && due(view.state, Date.now())) readNow(false); });
+// The hourly read: checked every five minutes and whenever the window comes back; each account only when it is due.
+setInterval(() => readNow(false), 5 * 60 * 1000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) readNow(false); });
 // Relative times ("x 分钟前") stay current.
 setInterval(() => view.model && renderMeta(), 60 * 1000);
 // New versions: a few seconds after launch, then once a day while it keeps running in the menu bar.
