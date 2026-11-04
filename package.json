@@ -1,6 +1,6 @@
 {
   "name": "postglow",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "Postglow — a local, floating-card review of your X posts: what reads, when, and how it grows.",
   "private": true,
   "license": "MIT",
