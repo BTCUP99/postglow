@@ -32,7 +32,7 @@ jobs:
           targets: aarch64-apple-darwin,x86_64-apple-darwin
       - run: npm ci
       - run: npx tauri build --target universal-apple-darwin
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         with:
           name: Postglow-macos
           path: src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
