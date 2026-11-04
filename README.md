@@ -16,11 +16,22 @@
 - 粉丝：每天记一次，以及哪些帖子发出后粉丝涨得多。
 - 发后多久见分晓：发出 1 / 6 / 24 小时拿到 3 天阅读的几成。
 
-**怎么用**
+**安装**（二选一）
 
-1. 在 [Releases](../../releases) 下载 `Postglow_x.y.z_universal.dmg`，拖进「应用程序」。
-2. 第一次打开：应用还没有签名，请在「应用程序」里**右键 Postglow → 打开**，再点「打开」。（或者 `xattr -dr com.apple.quarantine /Applications/Postglow.app`）
-3. 输入你的 X 用户名。第一次会回看约一个月（几十秒），之后每小时自动读一次。
+- **一行命令**（最省事）：打开「终端」，粘贴下面这行，回车。会下载最新版、装进「应用程序」并直接打开，不会弹安全提示。
+  ```sh
+  curl -fsSL https://raw.githubusercontent.com/BTCUP99/postglow/main/install.sh | bash
+  ```
+- **手动下载**：在 [Releases](../../releases) 下载 `Postglow_x.y.z_universal.dmg`，打开后照窗口里的三步做：
+  1. 把 Postglow 拖进「应用程序」。
+  2. 在「应用程序」里双击 Postglow。应用还没有经过 Apple 公证，会弹出提示，点「完成」。
+  3. 打开「系统设置 → 隐私与安全性」，拉到最下面，点「仍要打开」，输入一次密码。以后就能正常打开了。
+
+  如果提示「已损坏」（0.1.0 版会这样），在「终端」里运行 `xattr -dr com.apple.quarantine /Applications/Postglow.app` 后再打开。
+
+**使用**
+
+1. 输入你的 X 用户名。第一次会回看约一个月（几十秒），之后每小时自动读一次。
 
 关掉窗口后 Postglow 留在菜单栏里继续读取；要退出，点菜单栏图标 → 退出。帖子满 72 小时才进入大部分统计，粉丝曲线每天一个点，所以开着用几天会越来越准。
 
@@ -46,7 +57,8 @@
 
 Postglow reads one public X account through the open [FxTwitter](https://github.com/FxEmbed/FxEmbed) API (no login, no key), keeps the posts on your Mac, and shows how they did: reach against your usual post of the same age, the hour and weekday they went out, form and length, reach × bookmarks, how fast views arrive, and follower growth.
 
-- Download the `.dmg` from [Releases](../../releases). The app is not signed yet: right-click → Open the first time.
+- Install with one line: `curl -fsSL https://raw.githubusercontent.com/BTCUP99/postglow/main/install.sh | bash` (downloads the latest release into /Applications and opens it, no Gatekeeper prompt).
+- Or download the `.dmg` from [Releases](../../releases). The app is not notarized yet: open it once, then System Settings → Privacy & Security → Open Anyway. If macOS says it is "damaged" (0.1.0), run `xattr -dr com.apple.quarantine /Applications/Postglow.app`.
 - It keeps running in the menu bar after you close the window and reads hourly.
 - Data stays in `~/Library/Application Support/app.postglow.desktop/state.json`. Nothing is sent anywhere but FxTwitter.
 
