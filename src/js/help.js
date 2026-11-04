@@ -21,7 +21,12 @@ export const HELP_HTML = `
 <div class="help-body">
 <section><h3>它在做什么</h3>
 <p>Postglow 每小时读一次你填的 X 账号的公开帖子和资料，存在这台电脑上，然后算出：哪些帖子被看得多、什么时间和什么形式发更好、读数涨得多快、粉丝怎么变。</p>
-<p>关掉窗口后它会留在屏幕顶部的菜单栏里继续读取；要彻底退出，点菜单栏里的 Postglow 图标 → 退出。</p></section>
+<p>它只在运行时读取，所以关掉窗口后默认留在屏幕顶部的菜单栏里继续读（不占 Dock）。点菜单栏图标 →「显示 Postglow」回到窗口；要彻底退出，点菜单栏图标 →「退出」，或在窗口里按 ⌘Q。</p>
+<fieldset class="choice"><legend>点窗口的关闭按钮时</legend>
+<label><input type="radio" name="closeAction" value="hide"> 留在菜单栏，继续读取（推荐）</label>
+<label><input type="radio" name="closeAction" value="quit"> 彻底退出</label>
+<label><input type="radio" name="closeAction" value="ask"> 每次询问</label>
+</fieldset></section>
 
 <section><h3>怎么看这一页</h3>
 <ul>

@@ -90,7 +90,25 @@ async fn install_update(app: AppHandle) -> Result<(), String> {
     app.restart()
 }
 
+/// Hide the window and the Dock icon; the menu-bar icon stays and the hourly read goes on.
+#[tauri::command]
+fn hide_window(app: AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.hide();
+    }
+    #[cfg(target_os = "macos")]
+    let _ = app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+}
+
+/// Quit for real: no window, no menu-bar icon, no reading until Postglow is opened again.
+#[tauri::command]
+fn quit_app(app: AppHandle) {
+    app.exit(0);
+}
+
 fn show_main(app: &AppHandle) {
+    #[cfg(target_os = "macos")]
+    let _ = app.set_activation_policy(tauri::ActivationPolicy::Regular);
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.show();
         let _ = window.set_focus();
@@ -100,7 +118,7 @@ fn show_main(app: &AppHandle) {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![load_state, save_state, open_url, check_update, install_update])
+        .invoke_handler(tauri::generate_handler![load_state, save_state, open_url, check_update, install_update, hide_window, quit_app])
         .setup(|app| {
             let show = MenuItem::with_id(app, "show", "显示 Postglow", true, None::<&str>)?;
             let update = MenuItem::with_id(app, "update", "检查更新…", true, None::<&str>)?;
@@ -124,16 +142,17 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
-            // Closing the window keeps the app in the menu bar, so the hourly read goes on.
+            // The page decides what closing means (stay in the menu bar, or quit), asking the first time.
+            // ⌘Q still quits right away.
             if let WindowEvent::CloseRequested { api, .. } = event {
-                let _ = window.hide();
                 api.prevent_close();
+                let _ = window.emit("close-requested", ());
             }
         })
         .build(tauri::generate_context!())
         .expect("error while building Postglow")
         .run(|app, event| {
-            // Clicking the Dock icon brings the window back.
+            // Clicking the Dock icon, or opening Postglow again from Finder, brings the window back.
             if let RunEvent::Reopen { .. } = event {
                 show_main(app);
             }

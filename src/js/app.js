@@ -110,8 +110,31 @@ function openHelp() {
     dialog.innerHTML = HELP_HTML;
     tauri?.app?.getVersion().then((version) => { $("appVersion").textContent = `版本 ${version}`; }).catch(() => {});
   }
+  const choice = closeChoice() || "ask";
+  dialog.querySelectorAll('[name="closeAction"]').forEach((input) => { input.checked = input.value === choice; });
   dialog.showModal();
 }
+
+/* ---------- closing the window: stay in the menu bar or quit, asked the first time ---------- */
+function closeChoice() {
+  try { return localStorage.getItem("postglow-close"); } catch { return null; }
+}
+function rememberClose(choice) {
+  try { choice === "ask" ? localStorage.removeItem("postglow-close") : localStorage.setItem("postglow-close", choice); } catch {}
+}
+function closeAs(choice) {
+  tauri?.core.invoke(choice === "quit" ? "quit_app" : "hide_window");
+}
+tauri?.event?.listen("close-requested", () => {
+  const choice = closeChoice();
+  if (choice === "hide" || choice === "quit") { closeAs(choice); return; }
+  hideTip();
+  $("help").open && $("help").close();
+  $("closeAsk").showModal();
+});
+document.addEventListener("change", (event) => {
+  if (event.target.name === "closeAction") rememberClose(event.target.value);
+});
 
 /* ---------- updates: checked at launch and daily; installing replaces the app and restarts it ---------- */
 const updates = { latest: "", dismissed: "", busy: false, hideTimer: 0 };
@@ -433,6 +456,13 @@ document.addEventListener("click", (event) => {
   if (help) { event.preventDefault(); showHint(help); return; }
   if (target.closest("#helpBtn, [data-open-help]")) { openHelp(); return; }
   if (target.closest("[data-help-close]") || target === $("help")) { $("help").close(); return; }
+  const closing = target.closest("[data-close-choice]");
+  if (closing) {
+    if ($("closeRemember").checked) rememberClose(closing.dataset.closeChoice);
+    $("closeAsk").close();
+    closeAs(closing.dataset.closeChoice);
+    return;
+  }
   if (target.closest("[data-check-update]")) { $("help").close(); checkUpdate(true); return; }
   if (target.closest("[data-update-install]")) { installUpdate(); return; }
   if (target.closest("[data-update-later]")) { updates.dismissed = updates.latest; $("update").hidden = true; return; }

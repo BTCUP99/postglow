@@ -242,6 +242,17 @@ dialog.help > header b { color: var(--ink-strong); font-size: 16px; }
 
 .linkish { margin-top: 6px; padding: 0; border: 0; background: none; color: var(--accent); font-size: 12px; text-decoration: underline; text-underline-offset: 2px; }
 
+/* Close question */
+dialog.ask { width: min(460px, calc(100vw - 32px)); padding: 24px; border: 1px solid var(--edge); border-radius: 24px; background: var(--card-solid); color: var(--ink); box-shadow: var(--shadow-lift); }
+dialog.ask::backdrop { background: rgba(10, 10, 20, .35); backdrop-filter: blur(4px); }
+dialog.ask h3 { margin: 0 0 8px; color: var(--ink-strong); font-size: 16px; }
+dialog.ask p { margin: 0 0 14px; color: var(--muted); font-size: 13px; line-height: 1.7; }
+.check { display: flex; align-items: center; gap: 6px; color: var(--ink); font-size: 12px; }
+.actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+fieldset.choice { display: grid; gap: 6px; margin: 8px 0 0; padding: 10px 14px; border: 1px solid var(--ring); border-radius: 14px; font-size: 13px; }
+fieldset.choice legend { padding: 0 4px; color: var(--muted); font-size: 12px; }
+fieldset.choice label { display: flex; align-items: center; gap: 6px; }
+
 /* Update bar */
 .update { position: fixed; top: 10px; left: 50%; z-index: 45; display: flex; align-items: center; gap: 10px; max-width: calc(100vw - 32px); padding: 8px 8px 8px 18px;
   translate: -50% 0; border: 1px solid var(--edge); border-radius: 999px; background: var(--card-solid); box-shadow: var(--shadow-lift); color: var(--ink); font-size: 13px; }
