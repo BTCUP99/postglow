@@ -589,6 +589,14 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden && vi
 setInterval(() => view.model && renderMeta(), 60 * 1000);
 // New versions: a few seconds after launch, then once a day while it keeps running in the menu bar.
 setTimeout(() => checkUpdate(false), 5000);
+// After an update, say so once.
+tauri?.app?.getVersion().then((version) => {
+  try {
+    const seen = localStorage.getItem("postglow-version");
+    if (seen && seen !== version) showUpdate(`已更新到 <b>${esc(version)}</b>`, true);
+    localStorage.setItem("postglow-version", version);
+  } catch {}
+}).catch(() => {});
 setInterval(() => checkUpdate(false), DAY);
 
 start();
