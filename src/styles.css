@@ -207,6 +207,16 @@ li.thin { opacity: .45; }
 .drill li time { color: var(--muted); } .drill li span { overflow: hidden; color: var(--ink-strong); text-overflow: ellipsis; white-space: nowrap; } .drill li b { color: var(--ink); font-weight: 500; }
 .drill footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--muted); font-size: 12px; }
 
+/* Where followers came from */
+.sources-title { margin-top: 16px; }
+.sources { margin: 0 0 12px; color: var(--ink); font-size: 13px; line-height: 1.7; }
+.sources b { color: var(--ink-strong); font-variant-numeric: tabular-nums; }
+.sources small { color: var(--muted); font-size: 11px; }
+#followerPosts .toplist { margin-bottom: 16px; }
+#followerPosts .cols3 { gap: 18px; margin-top: 6px; }
+#followerPosts .row { grid-template-columns: minmax(0, 5.5em) minmax(40px, 1fr) 36px; gap: 8px; cursor: default; }
+#followerPosts .row b { font-size: 12px; }
+
 /* Followers line */
 .line-path { fill: none; stroke: var(--accent); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 

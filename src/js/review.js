@@ -3,9 +3,14 @@
    Settled posts (72 hours or older) of the last four weeks are grouped by the hour and weekday they
    went out (local time), by form, by original or quote, and by length; each group's median views is
    compared with the account's usual post. Reach × bookmarks splits posts into four cells. How fast a
-   post gets its views comes from checkpoints taken on time only. Follower gains come from the daily
-   snapshots: the change from the last snapshot before a post to the first at least 24 hours after,
-   split among posts sharing that window — a direction, not proof of which post brought whom. */
+   post gets its views comes from checkpoints taken on time only.
+
+   Where followers come from is an estimate, not a fact (X does not say who came from which post). Each
+   read logs the follower count and, for posts under 72 hours old, their views at that same moment. Over
+   the gaps between reads (up to 3 hours), follower change = natural drift per hour + followers per view
+   × new views; a least-squares fit gives both. In each gap, the change beyond the drift is shared among
+   the posts by the views each gained in it; the rest is "other sources" (older posts, profile, search,
+   unfollows). Single posts count only above a few followers; groups follow the usual sample rules. */
 
 import { CHECKPOINTS, METRICS } from "./collect.js";
 
@@ -18,8 +23,10 @@ export const MIN_RELIABLE = 10;
 export const HOURLY_RELIABLE = 5;
 export const REACH_HIGH = 1.5;
 const GROWTH_POINTS = ["1h", "6h", "24h"];
-const FOLLOWER_LAG = 24;
-const FOLLOWER_WINDOW_MAX = 72;
+const ATTRIBUTION_HOURS = 72;
+const MAX_GAP_HOURS = 3;
+export const MIN_ATTRIBUTION_HOURS = 48;
+export const MIN_POST_FOLLOWERS = 3;
 export const TOPIC_KINDS = new Set(["original", "quote"]);
 export const FORMS = { video: "视频", picture: "图片", article: "X 长文", text: "纯文字" };
 export const KINDS = { original: "原创", quote: "引用" };
@@ -124,7 +131,6 @@ function row(members, shares, nowMs, baseline, reliableFrom = MIN_RELIABLE) {
   const split = nowMs - HALF * DAY - SETTLED_HOURS * HOUR;
   const recent = members.filter((post) => time(post) >= split).map(views);
   const earlier = members.filter((post) => time(post) < split).map(views);
-  const gained = members.map((post) => shares[post.id]?.share).filter((value) => typeof value === "number");
   const middle = median(all);
   return {
     posts: members.length,
@@ -134,7 +140,6 @@ function row(members, shares, nowMs, baseline, reliableFrom = MIN_RELIABLE) {
     bookmarksPerThousand: total ? Math.round((bookmarks * 10000) / total) / 10 : null,
     recent: { posts: recent.length, medianViews: median(recent) },
     earlier: { posts: earlier.length, medianViews: median(earlier) },
-    followers: gained.length ? Math.round(gained.reduce((a, b) => a + b, 0) * 10) / 10 : null,
     ids: [...members].sort((a, b) => views(b) - views(a)).map((post) => post.id),
   };
 }
@@ -158,19 +163,66 @@ function slots(posts, labels, key, shares, nowMs, baseline, reliableFrom) {
     : { posts: 0, reliable: false, medianViews: null, ratio: null, ids: [] }) }));
 }
 
-export function followerShares(posts, snapshots) {
-  const points = (snapshots || []).map((row) => [Date.parse(row.at), row.followers]).filter(([at, value]) => Number.isFinite(at) && Number.isInteger(value)).sort((a, b) => a[0] - b[0]);
-  const windows = {};
-  for (const post of posts) {
-    const posted = time(post);
-    if (!Number.isFinite(posted)) continue;
-    const before = points.filter(([at]) => at <= posted).at(-1);
-    const after = points.find(([at]) => at >= posted + FOLLOWER_LAG * HOUR);
-    if (before && after && after[0] - before[0] <= FOLLOWER_WINDOW_MAX * HOUR) windows[post.id] = [before[0], after[0], after[1] - before[1]];
+/* Views of a post at a read (unix seconds), from its series; 0 before it went out; null if not read then. */
+function viewsAt(post, second) {
+  const posted = time(post);
+  if (second * 1000 <= posted) return 0;
+  const minutes = (second * 1000 - posted) / 60000;
+  const hit = (post.series || []).find(([at]) => Math.abs(at - minutes) <= 1.5);
+  return hit ? hit[1] : null;
+}
+
+/* Which posts brought followers (see the note at the top). Returns null-free totals and per-post sums. */
+export function followerAttribution(posts, log = []) {
+  const points = (log || []).filter((p) => Array.isArray(p) && Number.isFinite(p[0]) && Number.isInteger(p[1])).sort((a, b) => a[0] - b[0]);
+  const gaps = [];
+  for (let i = 1; i < points.length; i += 1) {
+    const [t0, f0] = points[i - 1], [t1, f1] = points[i];
+    const hours = (t1 - t0) / 3600;
+    if (hours <= 0 || hours > MAX_GAP_HOURS) continue;
+    const parts = [];
+    for (const post of posts) {
+      const posted = time(post);
+      if (!Number.isFinite(posted) || posted >= t1 * 1000 || t0 * 1000 >= posted + ATTRIBUTION_HOURS * HOUR) continue;
+      const before = viewsAt(post, t0), after = viewsAt(post, t1);
+      if (before === null || after === null) continue;
+      if (after > before) parts.push([post.id, after - before]);
+    }
+    gaps.push({ hours, change: f1 - f0, views: parts.reduce((sum, [, v]) => sum + v, 0), parts });
   }
-  const sharing = {};
-  for (const [start, end] of Object.values(windows)) sharing[`${start}|${end}`] = (sharing[`${start}|${end}`] || 0) + 1;
-  return Object.fromEntries(Object.entries(windows).map(([id, [start, end, gain]]) => [id, { gain, share: gain / sharing[`${start}|${end}`] }]));
+  const hours = gaps.reduce((sum, gap) => sum + gap.hours, 0);
+  const net = gaps.reduce((sum, gap) => sum + gap.change, 0);
+  const result = { ready: false, hours: Math.round(hours), net, fromPosts: 0, other: net, drift: 0, perThousandViews: null, byPost: {} };
+  if (hours < MIN_ATTRIBUTION_HOURS) return result;
+  // Least squares, no intercept: change = drift × hours + rate × views.
+  let hh = 0, hv = 0, vv = 0, hc = 0, vc = 0;
+  for (const g of gaps) { hh += g.hours ** 2; hv += g.hours * g.views; vv += g.views ** 2; hc += g.hours * g.change; vc += g.views * g.change; }
+  const det = hh * vv - hv * hv;
+  const drift = det > 0 ? (vv * hc - hv * vc) / det : hc / hh;
+  const rate = det > 0 ? (hh * vc - hv * hc) / det : 0;
+  for (const g of gaps) {
+    if (!g.views) continue;
+    const excess = g.change - drift * g.hours;
+    for (const [id, v] of g.parts) {
+      const entry = (result.byPost[id] ||= { followers: 0, views: 0 });
+      entry.followers += excess * v / g.views;
+      entry.views += v;
+    }
+  }
+  result.ready = true;
+  result.drift = drift;
+  result.perThousandViews = rate * 1000;
+  result.fromPosts = Object.values(result.byPost).reduce((sum, entry) => sum + entry.followers, 0);
+  result.other = net - result.fromPosts;
+  return result;
+}
+
+/* Followers per thousand views for a group of posts, from their attributed sums. */
+function conversion(members, byPost, reliableFrom = MIN_RELIABLE) {
+  const known = members.filter((post) => byPost[post.id]);
+  const followers = known.reduce((sum, post) => sum + byPost[post.id].followers, 0);
+  const seen = known.reduce((sum, post) => sum + byPost[post.id].views, 0);
+  return { posts: known.length, followers, views: seen, perThousand: seen ? (followers * 1000) / seen : null, reliable: known.length >= reliableFrom };
 }
 
 function brief(post, baseline) {
@@ -249,12 +301,30 @@ function weekLine(posts, nowMs, baseline) {
 }
 
 /* The whole page's model. */
+/* The page's view of the attribution: totals, the posts above the noise floor, and groups by form, kind and length. */
+function followerModel(posts, attribution, baseline) {
+  const { byPost } = attribution;
+  const overall = conversion(posts, byPost, 1);
+  const groups = (key, names) => Object.entries(names).map(([id, label]) => ({ id, label, ...conversion(posts.filter((post) => key(post) === id), byPost) }))
+    .filter((entry) => entry.posts > 0);
+  return {
+    ...attribution, byPost: undefined, overallPerThousand: overall.perThousand, minPostFollowers: MIN_POST_FOLLOWERS, minHours: MIN_ATTRIBUTION_HOURS,
+    posts: posts.filter((post) => byPost[post.id]?.followers >= MIN_POST_FOLLOWERS)
+      .map((post) => ({ ...brief(post, baseline), followers: byPost[post.id].followers, windowViews: byPost[post.id].views,
+        perThousand: byPost[post.id].views ? (byPost[post.id].followers * 1000) / byPost[post.id].views : null }))
+      .sort((a, b) => b.followers - a.followers).slice(0, 5),
+    groups: { forms: groups(form, FORMS), kinds: groups((post) => post.kind, KINDS), lengths: groups(length, LENGTHS) },
+  };
+}
+
 export function review(state, nowMs = Date.now()) {
   const posts = Object.values(state.posts || {}).sort((a, b) => String(b.postedAt).localeCompare(String(a.postedAt)));
   const base = baselines(posts, nowMs);
   const baseline = base.settled;
   const settled = settledPosts(posts, nowMs);
-  const shares = followerShares(posts.filter((post) => TOPIC_KINDS.has(post.kind)), state.snapshots);
+  const shares = {};
+  const topical = posts.filter((post) => TOPIC_KINDS.has(post.kind));
+  const attribution = followerAttribution(topical, state.followerLog);
   const rows = posts.map((post) => ({ ...post, reach: relativeReach(post, base, nowMs),
     engagementRate: views(post) ? engagements(post.metrics) / views(post) : 0, ageHours: (nowMs - time(post)) / HOUR }));
   return {
@@ -272,8 +342,7 @@ export function review(state, nowMs = Date.now()) {
     lengths: slots(settled, Object.keys(LENGTHS), length, shares, nowMs, baseline, MIN_RELIABLE).map((entry) => ({ ...entry, label: LENGTHS[entry.id] })),
     quadrant: quadrant(settled, baseline),
     growth: growth(settled),
-    followerPosts: settled.filter((post) => shares[post.id]?.share > 0).map((post) => ({ ...brief(post, baseline), followers: shares[post.id].share }))
-      .sort((a, b) => b.followers - a.followers).slice(0, 5),
+    followers: followerModel(topical, attribution, baseline),
     posts: rows,
   };
 }

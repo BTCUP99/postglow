@@ -4,6 +4,9 @@
    1h, 6h, 24h and 72h of age, freezes a checkpoint of its counts at that age, so posts of different
    ages are compared only at the same age. The first read walks back about a month once. Counts only
    grow, so a flaky read can never erase reach. A daily snapshot of the profile keeps follower growth.
+   For estimating which posts bring followers, every read also logs the follower count, and each post
+   younger than SERIES_HOURS keeps its views at every read (minutes since posting, views), taken at the
+   same moment as that follower reading.
    Nothing here logs in or writes to X. */
 
 export const TIMELINE_URL = "https://api.fxtwitter.com/2/profile/{account}/statuses";
@@ -19,6 +22,8 @@ const BACKFILL_HORIZON_DAYS = 35;
 const BACKFILL_MAX_PAGES = 30;
 const PAGE_PAUSE_MS = 1000;
 const SNAPSHOT_DAYS = 400;
+export const SERIES_HOURS = 76;
+const FOLLOWER_LOG_DAYS = 35;
 // [label, age in hours, how late a reading may be and still count as that age]
 export const CHECKPOINTS = [["1h", 1, 1], ["6h", 6, 2], ["24h", 24, 4], ["72h", 72, 8]];
 export const METRICS = ["views", "likes", "reposts", "replies", "bookmarks", "quotes"];
@@ -115,6 +120,25 @@ function recordCheckpoints(post, nowMs) {
   }
 }
 
+/* Views at each read while a post is young: [minutes since posting, views]. */
+function recordSeries(post, nowMs) {
+  const posted = Date.parse(post.postedAt);
+  const minutes = Math.round((nowMs - posted) / 60000);
+  if (!Number.isFinite(minutes) || minutes < 0 || minutes > SERIES_HOURS * 60) return;
+  const series = Array.isArray(post.series) ? post.series.filter((point) => point[0] !== minutes) : [];
+  series.push([minutes, count(post.metrics?.views)]);
+  post.series = series.sort((a, b) => a[0] - b[0]);
+}
+
+/* The follower count at each read: [unix seconds, followers]. */
+export function recordFollowers(state, followers, nowMs) {
+  const cutoff = nowMs / 1000 - FOLLOWER_LOG_DAYS * 86400;
+  const second = Math.floor(nowMs / 1000);
+  const log = (state.followerLog || []).filter((point) => point[0] >= cutoff && point[0] !== second);
+  log.push([second, count(followers)]);
+  state.followerLog = log.sort((a, b) => a[0] - b[0]);
+}
+
 /* Fold one read into the state; counts only grow. Returns how many posts were updated. */
 export function merge(state, incoming, nowMs) {
   let changed = 0;
@@ -127,6 +151,7 @@ export function merge(state, incoming, nowMs) {
     post.metrics = Object.fromEntries(METRICS.map((name) => [name, Math.max(count(old[name]), count(raw.metrics?.[name]))]));
     post.observedAt = iso(nowMs);
     recordCheckpoints(post, nowMs);
+    recordSeries(post, nowMs);
     state.posts[raw.id] = post;
     changed += 1;
   }
@@ -178,6 +203,7 @@ export async function collect(state, { now = () => Date.now(), force = false, fe
   if (!error && profile) {
     state.account = profile.handle || state.account;
     recordSnapshot(state, profile, finished);
+    recordFollowers(state, profile.followers, finished);
   }
   state.collector = { ...state.collector, lastAttemptAt: iso(finished), lastOk: !error, lastError: error, pagesRead: result.pages };
   if (!error) {

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { collect, emptyState, merge, normalizeStatus } from "../src/js/collect.js";
-import { baselines, followerShares, median, quadrant, relativeReach, review } from "../src/js/review.js";
+import { collect, emptyState, merge, normalizeStatus, recordFollowers } from "../src/js/collect.js";
+import { baselines, followerAttribution, median, quadrant, relativeReach, review } from "../src/js/review.js";
 
 const HOUR = 3600 * 1000;
 const NOW = Date.parse("2026-06-15T12:00:00Z");
@@ -55,11 +55,53 @@ test("reach × bookmarks splits on 1.5× the usual and the account's own bookmar
   assert.deepEqual(result.counts, { both: 1, reach: 1, saves: 1, neither: 1 });
 });
 
-test("followers gained in the window after a post are split among the posts in it", () => {
-  const snapshots = [{ at: new Date(NOW - 50 * HOUR).toISOString(), followers: 100 }, { at: new Date(NOW - 2 * HOUR).toISOString(), followers: 130 }];
-  const shares = followerShares([post(1, 40, 10), post(2, 30, 10), post(3, 1, 10)], snapshots);
-  assert.deepEqual(Object.keys(shares).sort(), ["1", "2"]);
-  assert.equal(shares["1"].share, 15);
+/* A week of hourly reads: followers drift +1 an hour; post A (out at 20.5 h) brings 9 more as it is read,
+   post B (out at 60.5 h) gets as many views and brings none. */
+function attributionFixture({ hours = 100, gapAt = null } = {}) {
+  const base = Date.parse("2026-06-01T00:00:00Z") / 1000;
+  const viewsAfter = [0, 1000, 1500, 1800, 2000];
+  const extraA = [0, 5, 7, 8, 9];
+  const at = (h) => base + h * 3600;
+  const young = (outAt) => ({ postedAt: new Date((base + outAt * 3600) * 1000).toISOString(), kind: "original", metrics: { views: 2000 },
+    series: Array.from({ length: 72 }, (_, k) => [30 + k * 60, viewsAfter[Math.min(k + 1, 4)]]) });
+  const log = [];
+  for (let h = 0; h <= hours; h += 1) {
+    if (gapAt !== null && h > gapAt && h < gapAt + 5) continue;
+    const a = h <= 20 ? 0 : extraA[Math.min(h - 20, 4)];
+    log.push([at(h), 1000 + h + a]);
+  }
+  return { posts: [{ id: "A", ...young(20.5) }, { id: "B", ...young(60.5) }], log };
+}
+
+test("followers are shared by new views after the natural drift is taken out", () => {
+  const { posts, log } = attributionFixture();
+  const result = followerAttribution(posts, log);
+  assert.equal(result.ready, true);
+  assert.ok(Math.abs(result.drift - 1) < 0.15, `drift ${result.drift}`);
+  assert.ok(Math.abs(result.byPost.A.followers - 9) < 1, `A ${result.byPost.A.followers}`);
+  assert.ok(Math.abs(result.byPost.B.followers) < 1, `B ${result.byPost.B.followers}`);
+  assert.equal(result.net, 109);
+  assert.ok(Math.abs(result.other - 100) < 1.5, "the drift stays with other sources");
+});
+
+test("no estimate before two days of reads, and long gaps (sleep) are left out", () => {
+  const { posts, log } = attributionFixture({ hours: 30 });
+  assert.equal(followerAttribution(posts, log).ready, false);
+  const gapped = attributionFixture({ gapAt: 80 });
+  const result = followerAttribution(gapped.posts, gapped.log);
+  assert.equal(result.hours, 95, "the 5-hour gap is not a gap between two reads");
+});
+
+test("a read logs followers, and young posts keep their views at each read", () => {
+  const state = emptyState("demo");
+  const now = Date.parse("2026-06-01T12:00:00Z");
+  merge(state, [{ ...post(1, 0, 100), postedAt: new Date(now - 2 * HOUR).toISOString() }, { ...post(2, 0, 50), postedAt: new Date(now - 100 * HOUR).toISOString() }], now);
+  merge(state, [{ ...post(1, 0, 180), postedAt: new Date(now - 2 * HOUR).toISOString() }], now + HOUR);
+  recordFollowers(state, 500, now);
+  recordFollowers(state, 503, now + HOUR);
+  assert.deepEqual(state.posts["1"].series, [[120, 100], [180, 180]]);
+  assert.equal(state.posts["2"].series, undefined, "older than the window: no series");
+  assert.deepEqual(state.followerLog.map((p) => p[1]), [500, 503]);
 });
 
 test("the page model groups settled posts by hour, form and length, empty hours included", () => {

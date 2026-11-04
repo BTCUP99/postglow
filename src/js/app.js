@@ -435,8 +435,35 @@ function renderFollowers(m) {
     host.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="粉丝数">${ticks}<path class="line-path" d="${line}"/>${dots}
       <text class="axis" x="${L}" y="${H - 4}">${esc(snaps[0].day)}</text><text class="axis" x="${W - R}" y="${H - 4}" text-anchor="end">${esc(snaps.at(-1).day)}</text></svg>`;
   }
-  $("followerPosts").innerHTML = m.followerPosts.length ? `<h4 style="margin-top:14px">带粉最多的帖子 <small>发帖前后 24 小时的粉丝变化，同一窗口的帖子平分</small> ${hint("followerPosts")}</h4><ol class="toplist">${m.followerPosts.map((row) =>
-    `<li><button type="button" data-pick="${esc(row.id)}">${esc(row.topic)}</button> <span>+${row.followers.toFixed(row.followers < 10 ? 1 : 0)} · ${number(row.views)} 阅读</span></li>`).join("")}</ol>` : "";
+  $("followerPosts").innerHTML = followerSources(m.followers);
+}
+
+/* Where followers came from: an estimate from hourly reads (review.js explains the method). */
+const signed = (value) => `${value >= 0 ? "+" : "−"}${Math.abs(value) < 10 ? Math.abs(value).toFixed(1) : Math.round(Math.abs(value))}`;
+function followerSources(f) {
+  const title = `<h4 class="sources-title">涨粉从哪来 <small>估算</small> ${hint("followerSources")}</h4>`;
+  if (!f.ready) {
+    return `${title}<p class="empty">从这个版本起每小时记录一次粉丝数，记满 ${f.minHours} 小时后开始估算哪些帖子、哪类内容带来涨粉（现在 ${f.hours} 小时）。保持 Postglow 在菜单栏里运行，记录越久越准。</p>`;
+  }
+  const summary = `<p class="sources">有记录的 ${f.hours} 小时里净增 <b>${signed(f.net)}</b>：新帖带来约 <b>${signed(f.fromPosts)}</b>，其他来源约 <b>${signed(f.other)}</b> <small>（老帖子、主页、搜索，减去取关）</small></p>`;
+  const posts = f.posts.length ? `<h4>带粉最多的帖子 <small>发出后 72 小时内，估算 ≥ ${f.minPostFollowers} 个</small> ${hint("followerPosts")}</h4><ol class="toplist">${f.posts.map((row) =>
+    `<li><button type="button" data-pick="${esc(row.id)}">${esc(row.topic)}</button> <span>约 ${signed(row.followers)} 粉 · ${number(row.windowViews)} 阅读</span></li>`).join("")}</ol>`
+    : `<p class="note">还没有哪条帖子单独带来明显的涨粉（估算都少于 ${f.minPostFollowers} 个）。</p>`;
+  const overall = f.overallPerThousand;
+  const bars = (name, rows) => {
+    const shown = rows.filter((row) => row.views > 0);
+    if (!shown.length || !(overall > 0)) return "";
+    const ratio = (row) => (row.perThousand ?? 0) / overall;
+    const max = Math.max(1.2, ...shown.filter((row) => row.reliable).map(ratio));
+    return `<section class="rank"><h4>${name}</h4><ol>${shown.map((row) => `<li class="${row.reliable ? "" : "thin"}"><div class="row">
+        <span class="name">${esc(row.label)}<small>${row.posts} 条</small></span>
+        <span class="track"><i class="fill${ratio(row) >= 1 ? "" : " below"}" style="--w:${Math.max(0, Math.min(100, ratio(row) / max * 100)).toFixed(1)}%"></i><i class="one" style="--one:${(1 / max * 100).toFixed(1)}%"></i></span>
+        <b>${ratio(row).toFixed(1)}×</b></div></li>`).join("")}</ol></section>`;
+  };
+  const groups = overall > 0 ? `<h4>哪类内容更带粉 <small>转粉率和平均比，竖线是平均；淡色样本少</small> ${hint("followerGroups")}</h4>
+    <div class="cols3">${bars("形式", f.groups.forms)}${bars("原创与引用", f.groups.kinds)}${bars("篇幅", f.groups.lengths)}</div>`
+    : `<p class="note">目前看不出新帖阅读和涨粉之间的关系，再记录一段时间看看。</p>`;
+  return title + summary + posts + groups;
 }
 
 function renderPace(m) {
