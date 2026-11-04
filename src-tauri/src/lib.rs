@@ -8,7 +8,11 @@ use std::path::PathBuf;
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Emitter, Manager, RunEvent, WindowEvent};
+use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
 use tauri_plugin_updater::UpdaterExt;
+
+/// Passed by the login item, so a start at login stays in the menu bar.
+const HIDDEN_ARG: &str = "--hidden";
 
 const STATE_FILE: &str = "state.json";
 const MAX_STATE_BYTES: usize = 16 * 1024 * 1024;
@@ -106,6 +110,19 @@ fn quit_app(app: AppHandle) {
     app.exit(0);
 }
 
+/// Whether Postglow starts (in the menu bar) when the user logs in.
+#[tauri::command]
+fn autostart_enabled(app: AppHandle) -> Result<bool, String> {
+    app.autolaunch().is_enabled().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn set_autostart(app: AppHandle, enabled: bool) -> Result<(), String> {
+    let launcher = app.autolaunch();
+    let result = if enabled { launcher.enable() } else { launcher.disable() };
+    result.map_err(|e| e.to_string())
+}
+
 fn show_main(app: &AppHandle) {
     #[cfg(target_os = "macos")]
     let _ = app.set_activation_policy(tauri::ActivationPolicy::Regular);
@@ -118,8 +135,16 @@ fn show_main(app: &AppHandle) {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![load_state, save_state, open_url, check_update, install_update, hide_window, quit_app])
+        .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, Some(vec![HIDDEN_ARG])))
+        .invoke_handler(tauri::generate_handler![load_state, save_state, open_url, check_update, install_update, hide_window, quit_app, autostart_enabled, set_autostart])
         .setup(|app| {
+            // The window starts hidden; show it unless this is the quiet start at login.
+            if std::env::args().any(|arg| arg == HIDDEN_ARG) {
+                #[cfg(target_os = "macos")]
+                app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+            } else {
+                show_main(app.handle());
+            }
             let show = MenuItem::with_id(app, "show", "显示 Postglow", true, None::<&str>)?;
             let update = MenuItem::with_id(app, "update", "检查更新…", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;

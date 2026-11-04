@@ -110,9 +110,21 @@ function openHelp() {
     dialog.innerHTML = HELP_HTML;
     tauri?.app?.getVersion().then((version) => { $("appVersion").textContent = `版本 ${version}`; }).catch(() => {});
   }
+  syncAutostart();
   const choice = closeChoice() || "ask";
   dialog.querySelectorAll('[name="closeAction"]').forEach((input) => { input.checked = input.value === choice; });
   dialog.showModal();
+}
+
+/* ---------- start at login (a LaunchAgent that opens Postglow in the menu bar) ---------- */
+async function syncAutostart() {
+  const box = $("autostart");
+  if (!box) return;
+  if (!tauri) { box.disabled = true; return; }
+  try { box.checked = await tauri.core.invoke("autostart_enabled"); } catch { box.disabled = true; }
+}
+async function setAutostart(enabled) {
+  try { await tauri?.core.invoke("set_autostart", { enabled }); } catch {}
 }
 
 /* ---------- closing the window: stay in the menu bar or quit, asked the first time ---------- */
@@ -134,6 +146,7 @@ tauri?.event?.listen("close-requested", () => {
 });
 document.addEventListener("change", (event) => {
   if (event.target.name === "closeAction") rememberClose(event.target.value);
+  if (event.target.id === "autostart") setAutostart(event.target.checked);
 });
 
 /* ---------- updates: checked at launch and daily; installing replaces the app and restarts it ---------- */
@@ -579,6 +592,7 @@ addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setT
 
 /* ---------- welcome and start ---------- */
 function showWelcome(current = "") {
+  document.querySelector(".autostart-ask").hidden = !tauri || Boolean(current);
   $("app").hidden = true;
   $("welcome").hidden = false;
   $("handleInput").value = current ? `@${current}` : "";
@@ -597,6 +611,7 @@ $("welcomeForm").addEventListener("submit", async (event) => {
   if (!result.ok) { status.className = "status error"; status.textContent = result.error || "读取失败"; return; }
   view.state = next;
   await save();
+  if (!document.querySelector(".autostart-ask").hidden) setAutostart($("welcomeAutostart").checked);
   status.textContent = "";
   $("welcome").hidden = true;
   $("app").hidden = false;

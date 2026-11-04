@@ -39,7 +39,8 @@
 
 1. 输入你的 X 用户名。第一次会回看约一个月（几十秒），之后每小时自动读一次。
 2. 看不懂某个板块：鼠标停在标题旁边的 **?** 上会有解释；右上角的 **?** 是完整的使用说明。
-3. 更新：Postglow 会自动检查新版本，有更新时顶部出现提示，点「立即更新」即可，几秒完成、数据保留，也不会再出现「已损坏」提示。也可以在使用说明或菜单栏图标里点「检查更新」。（自动更新从 0.1.3 开始；更早的版本请先手动装一次新版，直接拖进「应用程序」替换即可，不用卸载。）
+3. 开机自动启动：第一次使用时可以勾选「登录 Mac 时自动在菜单栏启动」，重启电脑后也不会漏读；之后在使用说明里随时开关。
+4. 更新：Postglow 会自动检查新版本，有更新时顶部出现提示，点「立即更新」即可，几秒完成、数据保留，也不会再出现「已损坏」提示。也可以在使用说明或菜单栏图标里点「检查更新」。（自动更新从 0.1.3 开始；更早的版本请先手动装一次新版，直接拖进「应用程序」替换即可，不用卸载。）
 
 第一次点窗口的关闭按钮时，Postglow 会问你：留在菜单栏继续读取（推荐，只占屏幕顶部一个小图标，不占 Dock），还是彻底退出；之后可以在使用说明里改。要彻底退出，点菜单栏图标 → 退出，或按 ⌘Q。窗口可以拖动顶部空白处移动。帖子满 72 小时才进入大部分统计，粉丝曲线每天一个点，所以开着用几天会越来越准。
 
@@ -71,6 +72,10 @@ Postglow reads one public X account through the open [FxTwitter](https://github.
 - Inside the app, the **?** at the top right opens a short guide, and every **?** next to a title explains that card on hover.
 - It keeps running in the menu bar after you close the window and reads hourly.
 - Data stays in `~/Library/Application Support/app.postglow.desktop/state.json`. Nothing is sent anywhere but FxTwitter.
+
+## Maintaining
+
+Release rules, the changelog and `scripts/release.sh`: see [docs/MAINTAINING.md](docs/MAINTAINING.md).
 
 ## Develop
 

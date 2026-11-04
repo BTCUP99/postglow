@@ -26,6 +26,9 @@ export const HELP_HTML = `
 <label><input type="radio" name="closeAction" value="hide"> 留在菜单栏，继续读取（推荐）</label>
 <label><input type="radio" name="closeAction" value="quit"> 彻底退出</label>
 <label><input type="radio" name="closeAction" value="ask"> 每次询问</label>
+</fieldset>
+<fieldset class="choice"><legend>开机</legend>
+<label><input type="checkbox" id="autostart"> 登录 Mac 时自动在菜单栏启动（不弹窗口），重启电脑后也不漏读</label>
 </fieldset></section>
 
 <section><h3>怎么看这一页</h3>
