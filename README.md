@@ -113,7 +113,7 @@ curl -fsSL https://raw.githubusercontent.com/BTCUP99/postglow/main/install.sh | 
 - 帖子只和同龄帖子比：满 72 小时的和「平时」比，更新的和其他帖子在 1 / 6 / 24 小时按时记下的读数比。
 - 一组不到 10 条（按小时不到 5 条）显示为淡色，不作结论。
 - 时间按电脑的本地时区。
-- **涨粉从哪来**（估算）：每小时记一次粉丝数和每条新帖的阅读。先估出不发帖时粉丝的自然增减，再把每小时多出来的涨粉按各条帖子那一小时新增的阅读分配，只算发出后 72 小时内。X 不公开谁从哪条帖子来，所以它适合比较「哪类内容更带粉」，不是精确数字；单条帖子只列估算至少 3 个的。记满 48 小时后开始显示。
+- **涨粉从哪来**（估算，仅供参考）：X 官方不公布新粉丝是从哪条帖子来的，任何第三方工具都拿不到这个信息。每小时记一次粉丝数和每条新帖的阅读。先估出不发帖时粉丝的自然增减，再把每小时多出来的涨粉按各条帖子那一小时新增的阅读分配，只算发出后 72 小时内。它适合比较「哪类内容更带粉」，不是精确数字；单条帖子只列估算至少 3 个的。记满 48 小时后开始显示。
 
 </details>
 
@@ -149,3 +149,13 @@ Release rules, the changelog and `scripts/release.sh`: [docs/MAINTAINING.md](doc
 ## License
 
 [MIT](LICENSE)
+
+## 免责声明 · Disclaimer
+
+Postglow（账号复盘）是独立的开源项目，与 X Corp.（原 Twitter）没有任何关联，也未获其授权、认可或赞助。「X」「Twitter」及相关标识是其各自所有者的商标，本项目仅为说明用途提及。
+
+- 数据通过第三方开源项目 [FxTwitter](https://github.com/FxEmbed/FxEmbed) 的公开接口读取，只涉及公开内容；本项目与 FxTwitter 也没有关联，无法保证其接口的可用性、准确性和持续性。
+- 所有统计、对比和「涨粉从哪来」的估算仅供参考，不构成任何建议；X 官方不公布粉丝来源，相关数字是推算结果。
+- 本软件按「原样」提供，不附带任何形式的担保，使用风险由使用者自行承担（详见 [MIT 许可证](LICENSE)）。请遵守 X 的服务条款及当地法律法规。
+
+Postglow is an independent open-source project. It is not affiliated with, endorsed by, or sponsored by X Corp. (formerly Twitter). "X" and "Twitter" are trademarks of their respective owners and are mentioned only to describe what the app works with. Data comes from the public API of the third-party [FxTwitter](https://github.com/FxEmbed/FxEmbed) project, which is also unaffiliated. All figures, including the follower-source estimates, are for reference only. The software is provided "as is", without warranty of any kind; see the [MIT License](LICENSE).

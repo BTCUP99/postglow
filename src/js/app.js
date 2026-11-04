@@ -441,7 +441,8 @@ function renderFollowers(m) {
 /* Where followers came from: an estimate from hourly reads (review.js explains the method). */
 const signed = (value) => `${value >= 0 ? "+" : "−"}${Math.abs(value) < 10 ? Math.abs(value).toFixed(1) : Math.round(Math.abs(value))}`;
 function followerSources(f) {
-  const title = `<h4 class="sources-title">涨粉从哪来 <small>估算</small> ${hint("followerSources")}</h4>`;
+  const title = `<h4 class="sources-title">涨粉从哪来 <small>估算</small> ${hint("followerSources")}</h4>
+    <p class="caveat">X 官方不公布新粉丝是从哪条帖子来的。这里是根据每小时的粉丝数和阅读推算的，仅供参考，不是精确数字。</p>`;
   if (!f.ready) {
     return `${title}<p class="empty">从这个版本起每小时记录一次粉丝数，记满 ${f.minHours} 小时后开始估算哪些帖子、哪类内容带来涨粉（现在 ${f.hours} 小时）。保持 Postglow 在菜单栏里运行，记录越久越准。</p>`;
   }
