@@ -32,6 +32,9 @@ jobs:
           targets: aarch64-apple-darwin,x86_64-apple-darwin
       - run: npm ci
       - run: npx tauri build --target universal-apple-darwin
+        env:
+          # Tauri skips the Finder step (DMG background, icon layout) on CI unless told not to.
+          TAURI_BUNDLER_DMG_IGNORE_CI: "true"
       - uses: actions/upload-artifact@v6
         with:
           name: Postglow-macos
