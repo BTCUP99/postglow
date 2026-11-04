@@ -2,7 +2,7 @@
 
 <img src="app-icon.png" width="112" alt="Postglow">
 
-# Postglow · 帖子复盘
+# Postglow · 账号复盘
 
 **一个轻量的 Mac 小工具：每小时读一次你的 X 帖子，在本地告诉你<br>哪些帖子被看、什么时候发更好、粉丝是怎么涨的。**
 
