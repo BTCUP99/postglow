@@ -340,11 +340,13 @@ function renderSwarm(m) {
   for (let p = low; p <= high; p += 1) ticks.push(10 ** p);
   const grid = ticks.map((value) => `<line class="grid" x1="${L}" x2="${W - R}" y1="${y(value)}" y2="${y(value)}"/><text class="axis" x="${L - 6}" y="${y(value) + 3}" text-anchor="end">${compact(value)}</text>`).join("");
   const days = [30, 20, 10, 0].map((back) => { const at = now - back * DAY, d = new Date(at); return `<text class="axis" x="${x(new Date(at).toISOString())}" y="${H - 8}" text-anchor="${back ? "middle" : "end"}">${back ? `${d.getMonth() + 1}/${d.getDate()}` : "今天"}</text>`; }).join("");
-  const base = m.baselineViews ? `<line class="base" x1="${L}" x2="${W - R}" y1="${y(m.baselineViews)}" y2="${y(m.baselineViews)}"/><text class="axis" x="${W - R - 4}" y="${y(m.baselineViews) - 5}" text-anchor="end">平时 ${number(m.baselineViews)}</text>` : "";
+  const base = m.baselineViews ? `<line class="base" x1="${L}" x2="${W - R}" y1="${y(m.baselineViews)}" y2="${y(m.baselineViews)}"/>` : "";
+  // The 平时 label goes over the dots, with a halo in the card's colour so it stays readable.
+  const baseLabel = m.baselineViews ? `<text class="axis halo" x="${W - R - 4}" y="${y(m.baselineViews) - 5}" text-anchor="end">平时 ${number(m.baselineViews)}</text>` : "";
   const maxB = Math.max(1, ...posts.map((post) => post.metrics.bookmarks));
   const dots = [...posts].sort((a, b) => b.metrics.bookmarks - a.metrics.bookmarks).map((post, index) => `<circle class="dot f-${formOf(post)}${visible(post) ? "" : " dim"}${post.id === view.focusId ? " focus" : ""}" style="--pop:${Math.min(index * 4, 600)}ms"
       cx="${x(post.postedAt).toFixed(1)}" cy="${y(post.metrics.views).toFixed(1)}" r="${(3.5 + Math.sqrt(post.metrics.bookmarks / maxB) * 18).toFixed(1)}" data-post="${esc(post.id)}" tabindex="0" role="button" aria-label="${esc(`${when(post.postedAt)} · ${number(post.metrics.views)} 阅读`)}"/>`).join("");
-  host.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="group" aria-label="近 30 天每条帖子的阅读">${grid}${days}${base}${dots}</svg>`;
+  host.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="group" aria-label="近 30 天每条帖子的阅读">${grid}${days}${base}${dots}${baseLabel}</svg>`;
   const present = new Set(posts.map(formOf));
   $("legend").innerHTML = Object.keys(FORMS).filter((key) => present.has(key)).map((key) => `<button type="button" class="f-${key}" data-form="${key}" aria-pressed="${view.filter?.form === key}"><i></i>${FORMS[key]} <span>${posts.filter((post) => formOf(post) === key).length}</span></button>`).join("");
 }

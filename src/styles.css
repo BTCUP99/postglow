@@ -125,6 +125,7 @@ h4 small { margin-left: 6px; color: var(--muted); font-size: 11px; font-weight: 
 .chart svg { display: block; width: 100%; height: auto; overflow: visible; }
 .axis { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
 .grid { stroke: var(--track); }
+.axis.halo { paint-order: stroke; stroke: var(--card-solid); stroke-width: 4px; stroke-linejoin: round; pointer-events: none; }
 .base { stroke: var(--muted); opacity: .5; }
 .dot { fill-opacity: .74; stroke: var(--card-solid); stroke-width: 2; transform-box: fill-box; transform-origin: center; cursor: pointer;
   transition: fill-opacity .18s, scale .22s ease-out, filter .22s; animation: pop .5s var(--pop, 0ms) cubic-bezier(.2, .9, .3, 1.15) both; }
